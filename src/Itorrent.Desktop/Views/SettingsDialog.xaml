@@ -1,0 +1,110 @@
+<c:RetroWindow x:Class="Itorrent.Desktop.Views.SettingsDialog"
+               xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:c="clr-namespace:Itorrent.Desktop.Controls"
+               xmlns:a="clr-namespace:Itorrent.Desktop.Assets"
+               Title="Configurações" IsDialog="True" ResizeMode="NoResize"
+               Width="640" SizeToContent="Height"
+               WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <c:RetroWindow.Resources>
+        <Style x:Key="Num" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="Width" Value="70" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Margin" Value="0,2" />
+        </Style>
+        <Style x:Key="Row" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,2,8,2" />
+        </Style>
+    </c:RetroWindow.Resources>
+
+    <StackPanel Margin="12,10,12,12">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel>
+                <GroupBox Header="Downloads">
+                    <StackPanel>
+                        <TextBlock Text="Pasta padrão:" FontWeight="Bold" Margin="0,0,0,2" />
+                        <DockPanel Margin="0,0,0,6">
+                            <Button DockPanel.Dock="Right" Content="..." Command="{Binding BrowseCommand}" Padding="6,1" Margin="4,0,0,0" />
+                            <TextBox Text="{Binding DefaultSavePath, UpdateSourceTrigger=PropertyChanged}" />
+                        </DockPanel>
+                        <CheckBox Content="Parar de semear ao concluir" IsChecked="{Binding StopSeedingOnComplete}"
+                                  ToolTip="O upload continua durante o download (tit-for-tat); só para depois de concluir." />
+                        <CheckBox Content="Avisar quando um download terminar" IsChecked="{Binding NotifyOnComplete}" />
+                        <CheckBox Content="Impedir suspensão do PC durante downloads" IsChecked="{Binding PreventSleepWhileDownloading}" />
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Velocidade">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
+                        </Grid.RowDefinitions>
+                        <TextBlock Style="{StaticResource Row}" Text="Limite de download (KB/s):" />
+                        <TextBox Grid.Column="1" Style="{StaticResource Num}" Text="{Binding MaxDownloadKBps}" />
+                        <TextBlock Style="{StaticResource Row}" Grid.Row="1" Text="Limite de upload (KB/s):" />
+                        <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding MaxUploadKBps}" />
+                        <TextBlock Style="{StaticResource Row}" Grid.Row="2" Text="Conexões por torrent:" />
+                        <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding MaxConnectionsPerTorrent}" />
+                        <TextBlock Style="{StaticResource Row}" Grid.Row="3" Text="Conexões no Turbo (200-500):" />
+                        <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding TurboConnectionsPerTorrent}" />
+                    </Grid>
+                </GroupBox>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <GroupBox Header="Conexão">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBlock Style="{StaticResource Row}" Text="Porta do BitTorrent:" />
+                            <TextBox Style="{StaticResource Num}" Text="{Binding ListenPort}" />
+                        </StackPanel>
+                        <CheckBox Content="UPnP / NAT-PMP (abrir porta no roteador)" IsChecked="{Binding AllowPortForwarding}" />
+                        <CheckBox Content="DHT (rede sem tracker)" IsChecked="{Binding AllowDht}" />
+                        <CheckBox Content="PEX (troca de peers)" IsChecked="{Binding AllowPeerExchange}" />
+                        <CheckBox Content="Descoberta de peers na rede local" IsChecked="{Binding AllowLocalPeerDiscovery}" />
+                        <CheckBox Content="Adicionar trackers públicos" IsChecked="{Binding AddPublicTrackers}" />
+                        <Border Margin="0,6,0,0" BorderBrush="Black" BorderThickness="1" Background="White" Padding="4">
+                            <DockPanel>
+                                <Image Source="{a:Pixel Turbo}" Width="16" Height="16" VerticalAlignment="Top" Margin="0,0,4,0" />
+                                <StackPanel>
+                                    <CheckBox Content="Modo Turbo" FontWeight="Bold" IsChecked="{Binding TurboMode}" Margin="0" />
+                                    <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,2,0,0"
+                                               Text="Liga tudo acima e sobe os limites de conexão. Nenhum programa passa da velocidade contratada; o Turbo ajuda a usar 100% dela." />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Sistema">
+                    <StackPanel>
+                        <CheckBox Content="Iniciar com o Windows (na bandeja)" IsChecked="{Binding StartWithWindows}" />
+                        <CheckBox Content="Fechar (X) mantém na bandeja" IsChecked="{Binding MinimizeToTrayOnClose}" />
+                        <Button Content="Abrir _magnet e .torrent com o Itorrent" Command="{Binding AssociateCommand}"
+                                HorizontalAlignment="Left" Margin="0,6,0,2" Padding="8,2" />
+                        <TextBlock Text="{Binding AssociationText}" FontSize="11" TextWrapping="Wrap" Foreground="{StaticResource Shadow}" />
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Text="{Binding Error}" Foreground="{StaticResource Alert}" FontWeight="Bold" TextWrapping="Wrap"
+                   Visibility="{Binding Error, Converter={StaticResource ShowIf}}" Margin="0,0,0,6" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="OK" IsDefault="True" Width="96" Margin="0,0,8,0" Click="Ok_Click" />
+            <Button Content="Cancelar" IsCancel="True" Width="96" />
+        </StackPanel>
+    </StackPanel>
+</c:RetroWindow>

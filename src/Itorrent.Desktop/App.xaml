@@ -1,0 +1,17 @@
+<Application x:Class="Itorrent.Desktop.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:Itorrent.Desktop.Views"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Retro.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <v:EnumEqualsConverter x:Key="EnumEquals" />
+            <v:NotEmptyToVisibilityConverter x:Key="ShowIf" />
+            <v:NotEmptyToVisibilityConverter x:Key="HideIf" Invert="True" />
+            <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

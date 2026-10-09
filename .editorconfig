@@ -1,0 +1,16 @@
+root = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
+
+# Interface em português; não há localização via recursos.
+dotnet_diagnostic.CA1303.severity = none
+# App de desktop: não usamos ConfigureAwait(false) no código de UI.
+dotnet_diagnostic.CA2007.severity = none
+# Validação de entrada externa precisa capturar qualquer exceção do parser.
+dotnet_diagnostic.CA1031.severity = none
+# Nomes curtos de tipos de domínio (Torrent*) são intencionais.
+dotnet_diagnostic.CA1711.severity = none
+# Testes xUnit usam sublinhado nos nomes.
+dotnet_diagnostic.CA1707.severity = none

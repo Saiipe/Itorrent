@@ -1,0 +1,12 @@
+iTorrent - pacote de ícones
+
+itorrent.ico  -> ícone do app Windows (16, 20, 24, 32, 40, 48, 64, 96, 128 e 256 px)
+png/          -> PNGs transparentes de 16 a 1024 px
+
+Como usar no projeto C# (.NET):
+1. Copie itorrent.ico para a raiz do projeto (ou uma pasta Assets/).
+2. No .csproj, dentro de <PropertyGroup>:
+     <ApplicationIcon>itorrent.ico</ApplicationIcon>
+3. Ícone da janela:
+   - WPF:      <Window ... Icon="itorrent.ico">  (marque o arquivo como Resource)
+   - WinForms: this.Icon = new Icon("itorrent.ico");  ou pelo Properties > Icon
