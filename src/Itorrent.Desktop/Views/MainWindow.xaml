@@ -275,12 +275,54 @@
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
                                 <GridViewColumn Header="{l:L Col.Status}" c:GridSort.Member="StatusText" Width="116" DisplayMemberBinding="{Binding StatusText}" />
-                                <GridViewColumn Header="{l:L Col.Down}" c:GridSort.Member="SortDown" Width="80" DisplayMemberBinding="{Binding DownText}" />
-                                <GridViewColumn Header="{l:L Col.Up}" c:GridSort.Member="SortUp" Width="74" DisplayMemberBinding="{Binding UpText}" />
-                                <GridViewColumn Header="{l:L Col.Time}" c:GridSort.Member="SortEta" Width="66" DisplayMemberBinding="{Binding EtaText}" />
-                                <GridViewColumn Header="{l:L Col.Seeds}" c:GridSort.Member="SortSeeds" Width="74" DisplayMemberBinding="{Binding SeedsText}" />
-                                <GridViewColumn Header="{l:L Col.Peers}" c:GridSort.Member="SortPeers" Width="74" DisplayMemberBinding="{Binding PeersText}" />
-                                <GridViewColumn Header="{l:L Col.Added}" c:GridSort.Member="SortAdded" Width="112" DisplayMemberBinding="{Binding AddedText}" />
+                                <GridViewColumn c:GridSort.Member="SortDown" Width="96" DisplayMemberBinding="{Binding DownText}">
+                                    <GridViewColumn.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image Source="{a:Pixel Down}" Width="16" Height="16" Margin="0,0,3,0" />
+                                            <TextBlock Text="{l:L Col.Down}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </GridViewColumn.Header>
+                                </GridViewColumn>
+                                <GridViewColumn c:GridSort.Member="SortUp" Width="88" DisplayMemberBinding="{Binding UpText}">
+                                    <GridViewColumn.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image Source="{a:Pixel Up}" Width="16" Height="16" Margin="0,0,3,0" />
+                                            <TextBlock Text="{l:L Col.Up}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </GridViewColumn.Header>
+                                </GridViewColumn>
+                                <GridViewColumn c:GridSort.Member="SortEta" Width="82" DisplayMemberBinding="{Binding EtaText}">
+                                    <GridViewColumn.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image Source="{a:Pixel Clock}" Width="16" Height="16" Margin="0,0,3,0" />
+                                            <TextBlock Text="{l:L Col.Time}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </GridViewColumn.Header>
+                                </GridViewColumn>
+                                <GridViewColumn c:GridSort.Member="SortSeeds" Width="90" DisplayMemberBinding="{Binding SeedsText}">
+                                    <GridViewColumn.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image Source="{a:Pixel Seed}" Width="16" Height="16" Margin="0,0,3,0" />
+                                            <TextBlock Text="{l:L Col.Seeds}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </GridViewColumn.Header>
+                                </GridViewColumn>
+                                <GridViewColumn c:GridSort.Member="SortPeers" Width="90" DisplayMemberBinding="{Binding PeersText}">
+                                    <GridViewColumn.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image Source="{a:Pixel Peers}" Width="16" Height="16" Margin="0,0,3,0" />
+                                            <TextBlock Text="{l:L Col.Peers}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </GridViewColumn.Header>
+                                </GridViewColumn>
+                                <GridViewColumn c:GridSort.Member="SortAdded" Width="128" DisplayMemberBinding="{Binding AddedText}">
+                                    <GridViewColumn.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image Source="{a:Pixel Calendar}" Width="16" Height="16" Margin="0,0,3,0" />
+                                            <TextBlock Text="{l:L Col.Added}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </GridViewColumn.Header>
+                                </GridViewColumn>
                             </GridView>
                         </ListView.View>
                     </ListView>
@@ -386,29 +428,53 @@
                                         <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
                                         <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
                                     </Grid.RowDefinitions>
-                                    <TextBlock Style="{StaticResource InfoKey}" Text="{l:L Info.Status}" />
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,2,8,2">
+                                        <Image Source="{a:Pixel Info}" Width="16" Height="16" Margin="0,0,3,0" />
+                                        <TextBlock Style="{StaticResource InfoKey}" Margin="0" Text="{l:L Info.Status}" />
+                                    </StackPanel>
                                     <TextBlock Style="{StaticResource InfoValue}" Grid.Column="1" Text="{Binding StatusText}" />
-                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="1" Text="{l:L Info.Downloaded}" />
+                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,2,8,2">
+                                        <Image Source="{a:Pixel File}" Width="16" Height="16" Margin="0,0,3,0" />
+                                        <TextBlock Style="{StaticResource InfoKey}" Margin="0" Text="{l:L Info.Downloaded}" />
+                                    </StackPanel>
                                     <TextBlock Style="{StaticResource InfoValue}" Grid.Row="1" Grid.Column="1" Text="{Binding DownloadedText}" />
-                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="2" Text="{l:L Info.Progress}" />
+                                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,2,8,2">
+                                        <Image Source="{a:Pixel Hourglass}" Width="16" Height="16" Margin="0,0,3,0" />
+                                        <TextBlock Style="{StaticResource InfoKey}" Margin="0" Text="{l:L Info.Progress}" />
+                                    </StackPanel>
                                     <ProgressBar Grid.Row="2" Grid.Column="1" Maximum="100" Margin="0,2"
                                                  Value="{Binding Progress, Mode=OneWay}" Tag="{Binding ProgressText}" />
-                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="3" Text="{l:L Info.Speed}" />
+                                    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,2,8,2">
+                                        <Image Source="{a:Pixel Down}" Width="16" Height="16" Margin="0,0,3,0" />
+                                        <TextBlock Style="{StaticResource InfoKey}" Margin="0" Text="{l:L Info.Speed}" />
+                                    </StackPanel>
                                     <TextBlock Style="{StaticResource InfoValue}" Grid.Row="3" Grid.Column="1">
-                                        <Run Text="↓" /><Run Text="{Binding DownText, Mode=OneWay}" />
-                                        <Run Text="  ↑" /><Run Text="{Binding UpText, Mode=OneWay}" />
+                                        <InlineUIContainer BaselineAlignment="Center"><Image Source="{a:Pixel Down}" Width="16" Height="16" /></InlineUIContainer><Run Text="{Binding DownText, Mode=OneWay}" />
+                                        <Run Text="  " /><InlineUIContainer BaselineAlignment="Center"><Image Source="{a:Pixel Up}" Width="16" Height="16" /></InlineUIContainer><Run Text="{Binding UpText, Mode=OneWay}" />
                                     </TextBlock>
-                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="4" Text="{l:L Info.Eta}" />
+                                    <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,2,8,2">
+                                        <Image Source="{a:Pixel Clock}" Width="16" Height="16" Margin="0,0,3,0" />
+                                        <TextBlock Style="{StaticResource InfoKey}" Margin="0" Text="{l:L Info.Eta}" />
+                                    </StackPanel>
                                     <TextBlock Style="{StaticResource InfoValue}" Grid.Row="4" Grid.Column="1" Text="{Binding EtaText}" />
-                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="5" Text="{l:L Info.Seeds}" />
+                                    <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,2,8,2">
+                                        <Image Source="{a:Pixel Seed}" Width="16" Height="16" Margin="0,0,3,0" />
+                                        <TextBlock Style="{StaticResource InfoKey}" Margin="0" Text="{l:L Info.Seeds}" />
+                                    </StackPanel>
                                     <TextBlock Style="{StaticResource InfoValue}" Grid.Row="5" Grid.Column="1"
                                                ToolTip="{l:L Info.SeedsTip}">
-                                        <Run Text="{Binding SeedsText, Mode=OneWay}" /><Run Text="{l:L Info.Peers}" FontWeight="Bold" /><Run Text="{Binding PeersText, Mode=OneWay}" />
+                                        <Run Text="{Binding SeedsText, Mode=OneWay}" /><Run Text="   " /><InlineUIContainer BaselineAlignment="Center"><Image Source="{a:Pixel Peers}" Width="16" Height="16" Margin="0,0,3,0" /></InlineUIContainer><Run Text="{l:L Info.Peers}" FontWeight="Bold" /><Run Text="{Binding PeersText, Mode=OneWay}" />
                                     </TextBlock>
-                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="6" Text="{l:L Info.Folder}" />
+                                    <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,2,8,2">
+                                        <Image Source="{a:Pixel Folder}" Width="16" Height="16" Margin="0,0,3,0" />
+                                        <TextBlock Style="{StaticResource InfoKey}" Margin="0" Text="{l:L Info.Folder}" />
+                                    </StackPanel>
                                     <TextBlock Style="{StaticResource InfoValue}" Grid.Row="6" Grid.Column="1" Text="{Binding SavePath}"
                                                ToolTip="{Binding SavePath}" />
-                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="7" Text="{l:L Info.Added}" />
+                                    <StackPanel Grid.Row="7" Orientation="Horizontal" Margin="0,2,8,2">
+                                        <Image Source="{a:Pixel Calendar}" Width="16" Height="16" Margin="0,0,3,0" />
+                                        <TextBlock Style="{StaticResource InfoKey}" Margin="0" Text="{l:L Info.Added}" />
+                                    </StackPanel>
                                     <TextBlock Style="{StaticResource InfoValue}" Grid.Row="7" Grid.Column="1" Text="{Binding AddedText}" />
                                 </Grid>
                                 <Border Margin="0,8,0,0" BorderBrush="{StaticResource Alert}" BorderThickness="1" Padding="4"

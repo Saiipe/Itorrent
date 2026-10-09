@@ -152,7 +152,7 @@ public static class Strings
         ["Info.Eta"] = ("Tempo restante:", "Time left:"),
         ["Info.Seeds"] = ("Seeds:", "Seeds:"),
         ["Info.SeedsTip"] = ("Conectados a você (total na rede, pelo tracker)", "Connected to you (total in the swarm, from the tracker)"),
-        ["Info.Peers"] = ("   Peers: ", "   Peers: "),
+        ["Info.Peers"] = ("Peers: ", "Peers: "),
         ["Info.Folder"] = ("Pasta:", "Folder:"),
         ["Info.Added"] = ("Adicionado:", "Added:"),
         ["Info.Risky"] = ("Contém executáveis. O Itorrent nunca os abre; os arquivos recebem a marca 'baixado da internet' (SmartScreen).",
