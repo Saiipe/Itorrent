@@ -100,7 +100,7 @@ public partial class SmallDialog : RetroWindow
     public static void About(Window? owner)
     {
         var d = new SmallDialog(owner, "Sobre o Itorrent",
-            new BitmapImage(new Uri("pack://application:,,,/Assets/itorrent-48.png")));
+            new BitmapImage(new Uri("pack://application:,,,/Itorrent;component/Assets/itorrent-48.png")));
         d.DialogIcon.Width = d.DialogIcon.Height = 48;
         RenderOptions.SetBitmapScalingMode(d.DialogIcon, BitmapScalingMode.HighQuality);
         var version = typeof(SmallDialog).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";

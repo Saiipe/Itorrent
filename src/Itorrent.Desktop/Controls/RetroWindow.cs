@@ -17,7 +17,7 @@ public class RetroWindow : Window
     public RetroWindow()
     {
         SetResourceReference(StyleProperty, "RetroWindowStyle");
-        Icon = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/itorrent.ico"));
+        Icon = BitmapFrame.Create(new Uri("pack://application:,,,/Itorrent;component/Assets/itorrent.ico"));
 
         CommandBindings.Add(new CommandBinding(SystemCommands.CloseWindowCommand, (_, _) => Close()));
         CommandBindings.Add(new CommandBinding(SystemCommands.MinimizeWindowCommand, (_, _) => SystemCommands.MinimizeWindow(this)));

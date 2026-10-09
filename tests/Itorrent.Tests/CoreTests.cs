@@ -1,6 +1,7 @@
 using Itorrent.Core.Engine;
 using Itorrent.Core.Policies;
 using Itorrent.Core.Settings;
+using Itorrent.Core.Stats;
 using Itorrent.Core.Storage;
 using MonoTorrent.Client;
 
@@ -42,6 +43,39 @@ public class PolicyEngineTests
     [InlineData(TorrentState.Hashing, TorrentState.Seeding, true)]
     public void Detects_completion_transitions(TorrentState from, TorrentState to, bool expected) =>
         Assert.Equal(expected, PolicyEngine.IsCompletion(from, to));
+
+    [Theory]
+    [InlineData(TorrentStatus.Downloading, true)]
+    [InlineData(TorrentStatus.Stalled, true)]
+    [InlineData(TorrentStatus.FetchingMetadata, true)]
+    [InlineData(TorrentStatus.Checking, true)]
+    [InlineData(TorrentStatus.Seeding, true)]
+    [InlineData(TorrentStatus.Paused, false)]
+    [InlineData(TorrentStatus.Completed, false)]
+    [InlineData(TorrentStatus.Error, false)]
+    public void Only_active_transfers_keep_the_app_busy(TorrentStatus status, bool busy) =>
+        Assert.Equal(busy, PolicyEngine.KeepsAppBusy(status));
+
+    [Theory]
+    [InlineData(119, 120, false)]
+    [InlineData(120, 120, true)]
+    [InlineData(31, 30, true)]
+    [InlineData(179, 180, false)]
+    [InlineData(10_000, 0, false)]
+    public void Auto_exit_after_idle_time(int idleFor, int setting, bool expected)
+    {
+        var now = DateTimeOffset.Now;
+        Assert.Equal(expected, PolicyEngine.ShouldAutoExit(now.AddMinutes(-idleFor), now, setting));
+    }
+
+    [Fact]
+    public void Auto_exit_defaults_to_two_hours_and_rejects_odd_values()
+    {
+        Assert.Equal(120, new AppSettings().AutoExitIdleMinutes);
+        Assert.Equal(120, new AppSettings { AutoExitIdleMinutes = 45 }.Normalize().AutoExitIdleMinutes);
+        Assert.Equal(0, new AppSettings { AutoExitIdleMinutes = 0 }.Normalize().AutoExitIdleMinutes);
+        Assert.True(new AppSettings().MinimizeToTrayOnClose);
+    }
 
     [Fact]
     public void Partial_selection_completes_at_100_percent()

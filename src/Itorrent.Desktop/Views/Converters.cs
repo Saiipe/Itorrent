@@ -4,14 +4,22 @@ using System.Windows.Data;
 
 namespace Itorrent.Desktop.Views;
 
-/// <summary>RadioButton ↔ enum: IsChecked quando o valor é igual ao parâmetro.</summary>
+/// <summary>
+/// RadioButton ↔ valor (enum, número ou bool): marcado quando o valor é igual ao parâmetro.
+/// </summary>
 public sealed class EnumEqualsConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
-        value?.ToString() == parameter?.ToString();
+        string.Equals(value?.ToString(), parameter?.ToString(), StringComparison.OrdinalIgnoreCase);
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
-        value is true && parameter is string s ? Enum.Parse(targetType, s) : Binding.DoNothing;
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is not true || parameter is not string s)
+            return Binding.DoNothing;
+        return targetType.IsEnum
+            ? Enum.Parse(targetType, s)
+            : System.Convert.ChangeType(s, targetType, CultureInfo.InvariantCulture);
+    }
 }
 
 /// <summary>Visível quando o valor não é nulo nem string vazia (Invert para o contrário).</summary>

@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white" alt=".NET 10" />
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white" alt="Windows 10 e 11" />
   <img src="https://img.shields.io/badge/interface-WPF-5C2D91" alt="WPF" />
-  <img src="https://img.shields.io/badge/testes-64%20passando-2EA44F" alt="64 testes passando" />
+  <img src="https://img.shields.io/badge/testes-78%20passando-2EA44F" alt="78 testes passando" />
   <img src="https://img.shields.io/badge/an%C3%BAncios-zero-000080" alt="Zero anúncios" />
 </p>
 
@@ -79,7 +79,8 @@ Por baixo do visual antigo está tudo moderno: .NET 10, WPF, suporte a alta reso
 | Modo Turbo | Um botão que aplica de uma vez todos os ajustes de velocidade (veja abaixo). |
 | Parar de semear ao concluir | Para o torrent quando termina, mantendo os arquivos. Durante o download o upload continua, porque o BitTorrent recompensa quem envia. |
 | Estatísticas | Progresso, velocidade, tempo restante, seeds e peers no formato `12 (340)`: 12 conectados a você, 340 na rede. |
-| Segundo plano | Fechar (✕) só esconde a janela. Pausar tudo, Retomar tudo e Sair ficam no ícone da bandeja. |
+| Segundo plano | Por padrão, fechar (✕) só esconde a janela e os downloads continuam. Pausar tudo, Retomar tudo e Sair ficam no ícone da bandeja. Dá para trocar para "fechar de verdade" nas Opções. |
+| Encerrar sozinho | Se ficar em segundo plano sem baixar nada por **30 min, 2 h (padrão) ou 3 h**, o Itorrent se fecha sozinho. Também dá para escolher "Nunca". |
 | Retomada | Volta de onde parou depois de fechar o app ou reiniciar o PC. |
 | Notificação | Aviso do Windows quando um download termina. |
 | Iniciar com o Windows | Opcional, já minimizado na bandeja. |
@@ -164,10 +165,10 @@ Baixe na aba **[Releases](../../releases)**. Não precisa instalar o .NET.
 | `PathGuardTests` | 19 | Bloqueio de `../`, caminhos absolutos, nomes reservados, `:` e caminhos longos. |
 | `LinkValidatorTests` | 23 | Magnets válidos e inválidos, links gigantes, trackers `file://`, `.torrent` acima de 10 MB e **fuzzing** com 3.000 arquivos corrompidos. |
 | `FileRiskCheckerTests` | 11 | Detecção de executáveis, extensão dupla e gravação do Mark of the Web. |
-| `PolicyEngineTests` | 6 | Para de semear ao concluir; com a opção desligada, continua. |
+| `PolicyEngineTests` | 20 | Para de semear ao concluir (com a opção desligada, continua) e encerramento automático por inatividade (30 min, 2 h, 3 h, nunca). |
 | `TurboModeTests` | 3 | Perfil Turbo, torrents privados sem DHT/PEX e uma única porta aberta. |
 | `PersistenceTests` | 2 | Configurações e lista sobrevivem ao fechar e reabrir, inclusive com nomes maliciosos. |
-| **Total** | **64** | |
+| **Total** | **78** | |
 
 ## Compilar
 
@@ -179,7 +180,7 @@ Baixe na aba **[Releases](../../releases)**. Não precisa instalar o .NET.
 
 ```powershell
 dotnet build Itorrent.sln
-dotnet test                                    # 64 testes
+dotnet test                                    # 78 testes
 dotnet run --project src/Itorrent.Desktop
 ```
 

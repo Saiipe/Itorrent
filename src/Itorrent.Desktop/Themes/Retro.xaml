@@ -209,6 +209,50 @@
         </Setter>
     </Style>
 
+    <!-- ===== Botão de opção (círculo com ponto preto) ===== -->
+    <Style TargetType="RadioButton">
+        <Setter Property="FontFamily" Value="{StaticResource RetroFont}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="Black" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Margin" Value="0,2" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Grid Background="Transparent">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid Width="13" Height="13" VerticalAlignment="Center">
+                            <Ellipse x:Name="Ring" Fill="White" Stroke="Black" StrokeThickness="1" />
+                            <Ellipse x:Name="Dot" Width="5" Height="5" Fill="Black" Visibility="Collapsed" />
+                        </Grid>
+                        <Border x:Name="FocusRect" Grid.Column="1" Margin="4,0,0,0" Padding="1,0" BorderBrush="Black"
+                                BorderThickness="0" VerticalAlignment="Center">
+                            <ContentPresenter RecognizesAccessKey="True" VerticalAlignment="Center" />
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Dot" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="FocusRect" Property="BorderThickness" Value="1" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Ring" Property="StrokeThickness" Value="2" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{StaticResource Disabled}" />
+                            <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Disabled}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ===== Barras de rolagem estilo 3.1 ===== -->
     <Style x:Key="ScrollArrow" TargetType="RepeatButton" BasedOn="{StaticResource RetroButtonBase}">
         <Setter Property="Padding" Value="0" />
@@ -755,7 +799,20 @@
                                     </Button>
                                     <Button x:Name="MaxButton" Grid.Column="3" Style="{StaticResource CaptionButton}"
                                             Command="{x:Static SystemCommands.MaximizeWindowCommand}" ToolTip="Maximizar">
-                                        <Path x:Name="MaxGlyph" Data="M0,4 L4,0 L8,4 Z" Fill="Black" />
+                                        <Grid Width="9" Height="9" SnapsToDevicePixels="True">
+                                            <!-- Maximizar: uma janela com a barra de título grossa -->
+                                            <Canvas x:Name="MaxGlyph">
+                                                <Rectangle Width="9" Height="9" Stroke="Black" StrokeThickness="1" />
+                                                <Rectangle Width="9" Height="2" Fill="Black" />
+                                            </Canvas>
+                                            <!-- Restaurar: duas janelas sobrepostas -->
+                                            <Canvas x:Name="RestoreGlyph" Visibility="Collapsed">
+                                                <Rectangle Canvas.Left="2" Width="7" Height="6" Stroke="Black" StrokeThickness="1" />
+                                                <Rectangle Canvas.Left="2" Width="7" Height="2" Fill="Black" />
+                                                <Rectangle Canvas.Top="3" Width="7" Height="6" Fill="{StaticResource Face}" Stroke="Black" StrokeThickness="1" />
+                                                <Rectangle Canvas.Top="3" Width="7" Height="2" Fill="Black" />
+                                            </Canvas>
+                                        </Grid>
                                     </Button>
                                     <Button x:Name="CloseButton" Grid.Column="4" Style="{StaticResource CaptionButton}" Margin="2,0,0,0"
                                             Command="{x:Static SystemCommands.CloseWindowCommand}" ToolTip="Fechar">
@@ -778,7 +835,8 @@
                             <Setter TargetName="Frame" Property="Margin" Value="7" />
                             <Setter TargetName="MaxButton" Property="Command" Value="{x:Static SystemCommands.RestoreWindowCommand}" />
                             <Setter TargetName="MaxButton" Property="ToolTip" Value="Restaurar" />
-                            <Setter TargetName="MaxGlyph" Property="Data" Value="M0,4 L4,0 L8,4 Z M0,6 L8,6 L4,10 Z" />
+                            <Setter TargetName="MaxGlyph" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="RestoreGlyph" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsDialog" Value="True">
                             <Setter TargetName="MinButton" Property="Visibility" Value="Collapsed" />

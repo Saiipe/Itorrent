@@ -34,10 +34,11 @@ public sealed class SettingsViewModel : ObservableObject
         TurboConnectionsPerTorrent = s.TurboConnectionsPerTorrent.ToString(System.Globalization.CultureInfo.InvariantCulture);
         MaxDownloadKBps = s.MaxDownloadKBps.ToString(System.Globalization.CultureInfo.InvariantCulture);
         MaxUploadKBps = s.MaxUploadKBps.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        StartWithWindows = s.StartWithWindows;
+        StartWithWindows = StartupRegistry.IsEnabled();
         PreventSleepWhileDownloading = s.PreventSleepWhileDownloading;
         NotifyOnComplete = s.NotifyOnComplete;
         MinimizeToTrayOnClose = s.MinimizeToTrayOnClose;
+        AutoExitIdleMinutes = s.AutoExitIdleMinutes;
         _associationText = AssociationStatus();
 
         BrowseCommand = new RelayCommand(() =>
@@ -84,6 +85,7 @@ public sealed class SettingsViewModel : ObservableObject
     public bool PreventSleepWhileDownloading { get; set; }
     public bool NotifyOnComplete { get; set; }
     public bool MinimizeToTrayOnClose { get; set; }
+    public int AutoExitIdleMinutes { get; set; }
 
     public string AssociationText
     {
@@ -135,6 +137,7 @@ public sealed class SettingsViewModel : ObservableObject
             PreventSleepWhileDownloading = PreventSleepWhileDownloading,
             NotifyOnComplete = NotifyOnComplete,
             MinimizeToTrayOnClose = MinimizeToTrayOnClose,
+            AutoExitIdleMinutes = AutoExitIdleMinutes,
         });
         return true;
     }

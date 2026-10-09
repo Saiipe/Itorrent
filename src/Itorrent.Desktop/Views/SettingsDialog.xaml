@@ -60,6 +60,31 @@
                         <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding TurboConnectionsPerTorrent}" />
                     </Grid>
                 </GroupBox>
+
+                <GroupBox Header="Ao fechar">
+                    <StackPanel>
+                        <TextBlock Text="Ao clicar no ✕ da janela:" FontWeight="Bold" Margin="0,0,0,2" />
+                        <StackPanel Margin="8,0,0,6">
+                            <RadioButton GroupName="CloseAction" Content="Continuar em segundo plano (bandeja)"
+                                         IsChecked="{Binding MinimizeToTrayOnClose, Converter={StaticResource EnumEquals}, ConverterParameter=True}" />
+                            <RadioButton GroupName="CloseAction" Content="Fechar o Itorrent"
+                                         IsChecked="{Binding MinimizeToTrayOnClose, Converter={StaticResource EnumEquals}, ConverterParameter=False}" />
+                        </StackPanel>
+                        <TextBlock Text="Encerrar sozinho se ficar sem baixar nada por:" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,2" />
+                        <WrapPanel Margin="8,0,0,0">
+                            <RadioButton GroupName="AutoExit" Content="30 min" Margin="0,2,12,2"
+                                         IsChecked="{Binding AutoExitIdleMinutes, Converter={StaticResource EnumEquals}, ConverterParameter=30}" />
+                            <RadioButton GroupName="AutoExit" Content="2 horas" Margin="0,2,12,2"
+                                         IsChecked="{Binding AutoExitIdleMinutes, Converter={StaticResource EnumEquals}, ConverterParameter=120}" />
+                            <RadioButton GroupName="AutoExit" Content="3 horas" Margin="0,2,12,2"
+                                         IsChecked="{Binding AutoExitIdleMinutes, Converter={StaticResource EnumEquals}, ConverterParameter=180}" />
+                            <RadioButton GroupName="AutoExit" Content="Nunca" Margin="0,2,12,2"
+                                         IsChecked="{Binding AutoExitIdleMinutes, Converter={StaticResource EnumEquals}, ConverterParameter=0}" />
+                        </WrapPanel>
+                        <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Shadow}" Margin="0,4,0,0"
+                                   Text="Só vale com a janela escondida ou minimizada. Downloads pausados ou concluídos não contam como atividade." />
+                    </StackPanel>
+                </GroupBox>
             </StackPanel>
 
             <StackPanel Grid.Column="2">
@@ -90,7 +115,6 @@
                 <GroupBox Header="Sistema">
                     <StackPanel>
                         <CheckBox Content="Iniciar com o Windows (na bandeja)" IsChecked="{Binding StartWithWindows}" />
-                        <CheckBox Content="Fechar (X) mantém na bandeja" IsChecked="{Binding MinimizeToTrayOnClose}" />
                         <Button Content="Abrir _magnet e .torrent com o Itorrent" Command="{Binding AssociateCommand}"
                                 HorizontalAlignment="Left" Margin="0,6,0,2" Padding="8,2" />
                         <TextBlock Text="{Binding AssociationText}" FontSize="11" TextWrapping="Wrap" Foreground="{StaticResource Shadow}" />

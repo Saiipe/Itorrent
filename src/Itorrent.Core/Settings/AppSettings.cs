@@ -33,8 +33,18 @@ public sealed record AppSettings
     public bool NotifyOnComplete { get; init; } = true;
     public bool MinimizeToTrayOnClose { get; init; } = true;
 
+    /// <summary>
+    /// Encerra o app sozinho depois de ficar este tempo em segundo plano sem baixar nada.
+    /// 0 = nunca.
+    /// </summary>
+    public int AutoExitIdleMinutes { get; init; } = 120;
+
+    /// <summary>Opções oferecidas na tela de configurações (em minutos).</summary>
+    public static readonly IReadOnlyList<int> AutoExitChoices = [0, 30, 120, 180];
+
     public AppSettings Normalize() => this with
     {
+        AutoExitIdleMinutes = AutoExitChoices.Contains(AutoExitIdleMinutes) ? AutoExitIdleMinutes : 120,
         ListenPort = Math.Clamp(ListenPort, 1024, 65535),
         MaxConnectionsPerTorrent = Math.Clamp(MaxConnectionsPerTorrent, 10, 1000),
         TurboConnectionsPerTorrent = Math.Clamp(TurboConnectionsPerTorrent, 200, 500),

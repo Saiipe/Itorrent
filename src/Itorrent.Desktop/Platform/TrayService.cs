@@ -20,7 +20,7 @@ public sealed class TrayService : IDisposable
         menu.Items.Add(Item("_Sair", exit));
 
         using var iconStream = System.Windows.Application.GetResourceStream(
-            new Uri("pack://application:,,,/Assets/itorrent.ico")).Stream;
+            new Uri("pack://application:,,,/Itorrent;component/Assets/itorrent.ico")).Stream;
         _icon = new TaskbarIcon
         {
             ToolTipText = "Itorrent",

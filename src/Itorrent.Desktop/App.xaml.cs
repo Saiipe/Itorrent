@@ -89,6 +89,12 @@ public partial class App : Application
             exit: () => _ = ExitAsync());
 
         _window.ExitRequested += (_, _) => _ = ExitAsync();
+
+        // Encerramento automático: só com a janela fora de vista e nenhum diálogo aberto.
+        vm.CanAutoExit = () =>
+            (!_window.IsVisible || _window.WindowState == WindowState.Minimized)
+            && Windows.OfType<Window>().All(w => w == _window || !w.IsVisible);
+        vm.AutoExitRequested += (_, _) => _ = ExitAsync();
         _window.HiddenToTray += (_, _) =>
             _tray.Notify("Itorrent continua rodando", "Os downloads seguem em segundo plano. Use o ícone da bandeja para abrir ou sair.");
 

@@ -9,6 +9,16 @@ public static class StartupRegistry
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string ValueName = "Itorrent";
 
+    /// <summary>
+    /// Estado real no registro. O instalador também pode ligar a opção, então o registro
+    /// (e não só a configuração salva) é a fonte da verdade.
+    /// </summary>
+    public static bool IsEnabled()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(RunKey);
+        return key?.GetValue(ValueName) is string;
+    }
+
     public static void Apply(bool enabled)
     {
         using var key = Registry.CurrentUser.CreateSubKey(RunKey);

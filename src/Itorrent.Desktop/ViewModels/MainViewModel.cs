@@ -7,6 +7,7 @@ using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Itorrent.Core.Engine;
+using Itorrent.Core.Policies;
 using Itorrent.Core.Security;
 using Itorrent.Core.Stats;
 using Itorrent.Core.Storage;
@@ -46,6 +47,7 @@ public sealed class MainViewModel : ObservableObject
     private TorrentFilter _filter;
     private GlobalStats? _stats;
     private bool _isTurbo;
+    private DateTimeOffset _idleSince = DateTimeOffset.Now;
 
     public MainViewModel(ITorrentService service, ISettingsService settings, IDialogs dialogs, Func<string, string?> pickFolder)
     {
@@ -73,6 +75,12 @@ public sealed class MainViewModel : ObservableObject
         _timer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Tick(),
             Dispatcher.CurrentDispatcher);
     }
+
+    /// <summary>O app pode se encerrar sozinho agora? (janela escondida/minimizada, sem diálogo aberto)</summary>
+    public Func<bool> CanAutoExit { get; set; } = () => false;
+
+    /// <summary>Ficou o tempo configurado em segundo plano sem baixar nada.</summary>
+    public event EventHandler? AutoExitRequested;
 
     public ObservableCollection<TorrentItemViewModel> Torrents { get; } = [];
     public ICollectionView TorrentsView { get; }
@@ -192,10 +200,33 @@ public sealed class MainViewModel : ObservableObject
                 KeepAwake.Set(snapshots.Any(s => s.Status is TorrentStatus.Downloading or TorrentStatus.FetchingMetadata));
             else
                 KeepAwake.Set(false);
+
+            CheckAutoExit(snapshots);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Falha ao atualizar a interface");
+        }
+    }
+
+    /// <summary>
+    /// Conta o tempo em segundo plano sem nenhuma transferência ativa. Qualquer download,
+    /// a janela aberta ou um diálogo zeram a contagem.
+    /// </summary>
+    private void CheckAutoExit(IReadOnlyList<TorrentSnapshot> snapshots)
+    {
+        var now = DateTimeOffset.Now;
+        if (snapshots.Any(s => PolicyEngine.KeepsAppBusy(s.Status)) || !CanAutoExit())
+        {
+            _idleSince = now;
+            return;
+        }
+        var minutes = _settings.Current.AutoExitIdleMinutes;
+        if (PolicyEngine.ShouldAutoExit(_idleSince, now, minutes))
+        {
+            Log.Information("Encerrando: {Minutes} min em segundo plano sem baixar nada", minutes);
+            _idleSince = now;
+            AutoExitRequested?.Invoke(this, EventArgs.Empty);
         }
     }
 
