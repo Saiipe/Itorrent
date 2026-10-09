@@ -7,7 +7,6 @@ namespace Itorrent.Desktop.Controls;
 
 /// <summary>
 /// Janela com moldura e barra de título no estilo Windows 3.1.
-/// Clique duplo na caixa de controle (canto esquerdo) fecha a janela, como no original.
 /// </summary>
 public class RetroWindow : Window
 {
@@ -31,17 +30,22 @@ public class RetroWindow : Window
         }));
     }
 
+    /// <summary>
+    /// Com moldura própria (WindowChrome) + SizeToContent, o Windows calcula o tamanho contando
+    /// a borda padrão, que não existe aqui, e sobra uma faixa preta à direita e embaixo.
+    /// Remedir depois que o conteúdo aparece acerta o tamanho.
+    /// </summary>
+    protected override void OnContentRendered(EventArgs e)
+    {
+        base.OnContentRendered(e);
+        if (SizeToContent != SizeToContent.Manual)
+            InvalidateMeasure();
+    }
+
     public bool IsDialog
     {
         get => (bool)GetValue(IsDialogProperty);
         set => SetValue(IsDialogProperty, value);
-    }
-
-    public override void OnApplyTemplate()
-    {
-        base.OnApplyTemplate();
-        if (GetTemplateChild("ControlBox") is Button box)
-            box.MouseDoubleClick += (_, _) => Close();
     }
 }
 

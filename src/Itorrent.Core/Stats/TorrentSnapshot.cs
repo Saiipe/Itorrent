@@ -45,7 +45,9 @@ public sealed record FileSnapshot(
     long Length,
     double Progress,
     bool Selected,
-    FileRisk Risk);
+    FileRisk Risk,
+    bool ExistsOnDisk = false,
+    bool Deleted = false);
 
 public sealed record GlobalStats(
     long DownloadRate,

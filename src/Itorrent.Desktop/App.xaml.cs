@@ -1,3 +1,4 @@
+using Itorrent.Core.Localization;
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
@@ -63,16 +64,17 @@ public partial class App : Application
         try
         {
             _host = BuildHost();
+            ApplyLanguage(_host.Services.GetRequiredService<ISettingsService>());
             _service = _host.Services.GetRequiredService<ITorrentService>();
+            if (_service is TorrentService engine)
+                engine.FileDeleter = RecycleBin.Delete;
             await _service.StartAsync();
             Log.Information("Motor iniciado");
         }
         catch (Exception ex)
         {
             Log.Fatal(ex, "Falha ao iniciar o motor");
-            SmallDialog.Message(null, "Itorrent",
-                "Não foi possível iniciar o Itorrent.\n\n" + ex.Message +
-                "\n\nSe a porta estiver em uso, troque-a em Opções > Configurações.", "Warning");
+            SmallDialog.Message(null, "Itorrent", Strings.T("App.StartFailed", ex.Message), "Warning");
             await ExitAsync();
             return;
         }
@@ -96,12 +98,12 @@ public partial class App : Application
             && Windows.OfType<Window>().All(w => w == _window || !w.IsVisible);
         vm.AutoExitRequested += (_, _) => _ = ExitAsync();
         _window.HiddenToTray += (_, _) =>
-            _tray.Notify("Itorrent continua rodando", "Os downloads seguem em segundo plano. Use o ícone da bandeja para abrir ou sair.");
+            _tray.Notify(Strings.T("Tray.StillRunningTitle"), Strings.T("Tray.StillRunning"));
 
         _service.TorrentCompleted += (_, c) => Dispatcher.InvokeAsync(() =>
         {
             if (settings.Current.NotifyOnComplete)
-                _tray?.Notify("Download concluído", c.Name);
+                _tray?.Notify(Strings.T("Tray.Completed"), c.Name);
         });
 
         var trayTimer = new DispatcherTimer(TimeSpan.FromSeconds(2), DispatcherPriority.Background, (_, _) =>
@@ -128,6 +130,30 @@ public partial class App : Application
             _window.ShowFromTray();
             vm.HandleExternalInput(input);
         }
+    }
+
+    /// <summary>
+    /// Idioma: o escolhido no instalador (aplicado uma vez, logo depois de instalar), senão o salvo
+    /// nas Configurações, senão o do Windows.
+    /// </summary>
+    private static void ApplyLanguage(ISettingsService settings)
+    {
+        string? fromInstaller = null;
+        try
+        {
+            fromInstaller = Strings.Normalize(InstallerLanguage.Consume());
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Não foi possível ler o idioma do instalador");
+        }
+
+        var lang = !string.IsNullOrEmpty(fromInstaller) ? fromInstaller
+            : settings.Current.Language is { Length: > 0 } saved ? saved
+            : Strings.FromSystem();
+        if (lang != settings.Current.Language)
+            settings.Save(settings.Current with { Language = lang });
+        Strings.SetLanguage(lang);
     }
 
     private static IHost BuildHost()
@@ -185,6 +211,6 @@ public partial class App : Application
     {
         Log.Error(e.Exception, "Exceção não tratada na interface");
         e.Handled = true;
-        SmallDialog.Message(MainWindow, "Itorrent", "Ocorreu um erro inesperado:\n" + e.Exception.Message, "Warning");
+        SmallDialog.Message(MainWindow, "Itorrent", Strings.T("App.Unexpected", e.Exception.Message), "Warning");
     }
 }

@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white" alt=".NET 10" />
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white" alt="Windows 10 e 11" />
   <img src="https://img.shields.io/badge/interface-WPF-5C2D91" alt="WPF" />
-  <img src="https://img.shields.io/badge/testes-78%20passando-2EA44F" alt="78 testes passando" />
+  <img src="https://img.shields.io/badge/testes-87%20passando-2EA44F" alt="87 testes passando" />
   <img src="https://img.shields.io/badge/an%C3%BAncios-zero-000080" alt="Zero anúncios" />
 </p>
 
@@ -75,6 +75,9 @@ Por baixo do visual antigo está tudo moderno: .NET 10, WPF, suporte a alta reso
 |---|---|
 | Adicionar torrents | Por link magnet, arquivo `.torrent`, arrastar e soltar ou clique no navegador. |
 | Escolher antes de baixar | Mostra todos os arquivos numa árvore; você desmarca o que não quer, escolhe a pasta e vê o espaço livre no disco. |
+| Baixar de novo | Na lista de **Arquivos**, cada arquivo tem uma caixinha **Baixar**: marque um arquivo ignorado e ele começa a baixar na hora, mesmo com o torrent já concluído, sem reverificar o que já foi baixado. Para escolher vários de uma vez, dê clique duplo no torrent. Se algum arquivo foi apagado do disco, o Itorrent confere tudo e baixa de novo o que falta. |
+| Apagar e conferir arquivos | Cada arquivo baixado tem uma **lixeira** no fim da linha, na lista de Arquivos: manda para a Lixeira do Windows (dá para recuperar), confere se o arquivo realmente saiu do disco e desmarca o arquivo. O Itorrent também confere o disco sozinho: se um arquivo for apagado por fora (pelo Explorer, por exemplo), ele aparece como **apagado** e é desmarcado. Para baixar de novo, basta marcar a caixinha. |
+| Ordenar listas | Clique no título de qualquer coluna (Nome, Tamanho, Progresso, Down, Seeds…) para ordenar: 1º clique crescente ▲, 2º decrescente ▼, 3º volta à ordem original (de adição). A lista continua ordenada enquanto os números mudam. |
 | Alerta de executáveis | Avisa quando o torrent tem `.exe`, `.bat`, `.scr`, `.lnk`… e destaca extensão dupla (`filme.mp4.exe`). |
 | Modo Turbo | Um botão que aplica de uma vez todos os ajustes de velocidade (veja abaixo). |
 | Parar de semear ao concluir | Para o torrent quando termina, mantendo os arquivos. Durante o download o upload continua, porque o BitTorrent recompensa quem envia. |
@@ -86,6 +89,7 @@ Por baixo do visual antigo está tudo moderno: .NET 10, WPF, suporte a alta reso
 | Iniciar com o Windows | Opcional, já minimizado na bandeja. |
 | Impedir suspensão | Opcional: o PC não dorme enquanto há downloads ativos. |
 | Limites de velocidade | Download e upload em KB/s (0 = sem limite). |
+| Idiomas | **Português** e **English**. Escolha na instalação ou em Opções → Configurações; a troca é na hora, sem reiniciar. |
 
 ### Modo Turbo
 
@@ -167,8 +171,9 @@ Baixe na aba **[Releases](../../releases)**. Não precisa instalar o .NET.
 | `FileRiskCheckerTests` | 11 | Detecção de executáveis, extensão dupla e gravação do Mark of the Web. |
 | `PolicyEngineTests` | 20 | Para de semear ao concluir (com a opção desligada, continua) e encerramento automático por inatividade (30 min, 2 h, 3 h, nunca). |
 | `TurboModeTests` | 3 | Perfil Turbo, torrents privados sem DHT/PEX e uma única porta aberta. |
+| `LocalizationTests` | 9 | Todo texto existe em português e inglês, toda chave usada no código tem tradução e a troca de idioma muda textos e números. |
 | `PersistenceTests` | 2 | Configurações e lista sobrevivem ao fechar e reabrir, inclusive com nomes maliciosos. |
-| **Total** | **78** | |
+| **Total** | **87** | |
 
 ## Compilar
 
@@ -180,7 +185,7 @@ Baixe na aba **[Releases](../../releases)**. Não precisa instalar o .NET.
 
 ```powershell
 dotnet build Itorrent.sln
-dotnet test                                    # 78 testes
+dotnet test                                    # 87 testes
 dotnet run --project src/Itorrent.Desktop
 ```
 

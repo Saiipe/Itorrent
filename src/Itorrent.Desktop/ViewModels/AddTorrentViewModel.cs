@@ -1,3 +1,4 @@
+using Itorrent.Core.Localization;
 using System.Collections.ObjectModel;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -18,6 +19,7 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
     private readonly ITorrentService _service;
     private readonly ISettingsService _settings;
     private readonly Func<string, string?> _pickFolder;
+    private string? _existingId;
     private readonly CancellationTokenSource _cts = new();
     private TorrentPreview? _preview;
     private FileNode? _tree;
@@ -34,7 +36,7 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
         _pickFolder = pickFolder;
         _savePath = settings.Current.DefaultSavePath;
 
-        BrowseCommand = new RelayCommand(Browse, () => !IsBusy);
+        BrowseCommand = new RelayCommand(Browse, () => !IsBusy && !IsEditing);
         SelectAllCommand = new RelayCommand(() => SetAll(true), () => _tree is not null);
         SelectNoneCommand = new RelayCommand(() => SetAll(false), () => _tree is not null);
         ConfirmCommand = new AsyncRelayCommand(ConfirmAsync, CanConfirm);
@@ -77,10 +79,10 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
         private set => SetProperty(ref _error, value);
     }
 
-    public string Title => _preview?.Name ?? "Obtendo informações do torrent...";
+    public string Title => _preview?.Name ?? Strings.T("Add.Loading");
     public string TotalSizeText => _preview is null ? "?" : Format.Bytes(_preview.TotalSize);
-    public string FileCountText => _preview is null ? "" : $"{_preview.Files.Count} arquivo(s)";
-    public string PrivateText => _preview?.IsPrivate == true ? "Sim (sem DHT/PEX)" : "Não";
+    public string FileCountText => _preview is null ? "" : Strings.T("Add.FileCount", _preview.Files.Count);
+    public string PrivateText => _preview?.IsPrivate == true ? Strings.T("Add.PrivateYes") : Strings.T("Add.PrivateNo");
     public string? Comment => string.IsNullOrWhiteSpace(_preview?.Comment) ? null : _preview.Comment;
     public bool HasRiskyFiles => _preview?.HasRiskyFiles ?? false;
 
@@ -94,10 +96,8 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
             var dbl = risky.Count(f => f.Risk == FileRisk.DoubleExtension);
             var names = string.Join(", ", risky.Take(3).Select(f => Path.GetFileName(f.Path)));
             if (risky.Count > 3)
-                names += $" e mais {risky.Count - 3}";
-            return (dbl > 0 ? $"{dbl} arquivo(s) com EXTENSÃO DUPLA, típico de vírus disfarçado. " : "")
-                   + $"Este torrent contém programas ou scripts ({names}). "
-                   + "O Itorrent nunca executa arquivos baixados; desmarque-os se não confiar na origem.";
+                names += Strings.T("Add.RiskMore", risky.Count - 3);
+            return (dbl > 0 ? Strings.T("Add.RiskDouble", dbl) : "") + Strings.T("Add.RiskBody", names);
         }
     }
 
@@ -109,7 +109,7 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
                 return "";
             var leaves = _tree.Leaves().ToList();
             var chosen = leaves.Where(l => l.IsChecked == true).ToList();
-            return $"Selecionados: {chosen.Count} de {leaves.Count} arquivo(s) — {Format.Bytes(chosen.Sum(l => l.Length))}";
+            return Strings.T("Add.Selection", chosen.Count, leaves.Count, Format.Bytes(chosen.Sum(l => l.Length)));
         }
     }
 
@@ -139,10 +139,10 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
             try
             {
                 if (!PathGuard.IsValidSaveDirectory(SavePath))
-                    return "Pasta inválida";
+                    return Strings.T("Add.InvalidFolder");
                 var root = Path.GetPathRoot(Path.GetFullPath(SavePath));
                 var drive = new DriveInfo(root!);
-                return drive.IsReady ? $"Livre em {root}: {Format.Bytes(drive.AvailableFreeSpace)}" : "Unidade indisponível";
+                return drive.IsReady ? Strings.T("Add.FreeSpace", root, Format.Bytes(drive.AvailableFreeSpace)) : Strings.T("Add.DriveUnavailable");
             }
             catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException)
             {
@@ -169,13 +169,36 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             Serilog.Log.Error(ex, "Falha ao obter metadados do magnet");
-            Error = "Não foi possível obter a lista de arquivos. Verifique sua conexão e tente novamente.";
+            Error = Strings.T("Add.MetadataFailed");
         }
         finally
         {
             IsLoading = false;
         }
     }
+
+    /// <summary>
+    /// Modo "baixar novamente": torrent que já está na lista. A pasta não muda
+    /// (os arquivos já estão lá) e a seleção atual vem marcada.
+    /// </summary>
+    public void SetExisting(string id, TorrentPreview preview, string savePath, IReadOnlySet<int> selected)
+    {
+        _existingId = id;
+        _savePath = savePath;
+        SetPreview(preview);
+        foreach (var leaf in _tree!.Leaves())
+            leaf.IsChecked = selected.Contains(leaf.File!.Index);
+        OnPropertyChanged(string.Empty);
+        RefreshCommands();
+    }
+
+    public bool IsEditing => _existingId is not null;
+    public bool IsNew => !IsEditing;
+    public string DialogTitle => IsEditing ? Strings.T("Add.TitleAgain") : Strings.T("Add.TitleNew");
+
+    public string? EditingHint => IsEditing
+        ? Strings.T("Add.AgainHint")
+        : null;
 
     public void SetPreview(TorrentPreview preview)
     {
@@ -220,6 +243,12 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
         try
         {
             var selected = _tree.Leaves().Where(l => l.IsChecked == true).Select(l => l.File!.Index).ToHashSet();
+            if (_existingId is not null)
+            {
+                await _service.RedownloadAsync(_existingId, selected);
+                CloseRequested?.Invoke(this, true);
+                return;
+            }
             await _service.AddAsync(_preview, SavePath, selected);
             if (RememberFolder)
                 _settings.Save(_settings.Current with { DefaultSavePath = SavePath });
@@ -232,7 +261,7 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             Serilog.Log.Error(ex, "Falha ao adicionar torrent");
-            Error = "Não foi possível iniciar o download: " + ex.Message;
+            Error = Strings.T("Add.StartFailed", ex.Message);
         }
         finally
         {

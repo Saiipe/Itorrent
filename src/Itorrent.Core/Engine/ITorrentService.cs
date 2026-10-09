@@ -20,6 +20,30 @@ public interface ITorrentService : IAsyncDisposable
     /// <summary>Adiciona e inicia o download só dos arquivos selecionados.</summary>
     Task<string> AddAsync(TorrentPreview preview, string saveDirectory, IReadOnlySet<int> selectedFiles);
 
+    /// <summary>Lista de arquivos de um torrent já adicionado (para escolher de novo).</summary>
+    TorrentPreview GetPreview(string id);
+
+    /// <summary>Índices dos arquivos marcados hoje.</summary>
+    IReadOnlySet<int> GetSelectedFiles(string id);
+
+    /// <summary>
+    /// Troca os arquivos marcados e baixa de novo: confere o que já está no disco
+    /// (o que foi apagado volta a ser baixado) e reinicia, mesmo se estava concluído.
+    /// </summary>
+    Task RedownloadAsync(string id, IReadOnlySet<int> selectedFiles);
+
+    /// <summary>
+    /// Marca ou desmarca um arquivo de um torrent da lista. Marcar começa a baixá-lo na hora
+    /// (mesmo se o torrent estava concluído), sem reverificar o que já foi baixado.
+    /// </summary>
+    Task SetFileSelectedAsync(string id, int fileIndex, bool selected);
+
+    /// <summary>
+    /// Apaga um arquivo do torrent do disco (pela função <c>FileDeleter</c>, que no Windows manda
+    /// para a Lixeira) e para de baixá-lo. Confere depois se o arquivo realmente saiu do disco.
+    /// </summary>
+    Task DeleteFileAsync(string id, int fileIndex);
+
     Task PauseAsync(string id);
     Task ResumeAsync(string id);
     Task RemoveAsync(string id, bool deleteFiles);

@@ -1,3 +1,4 @@
+using Itorrent.Core.Localization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -41,14 +42,14 @@ public partial class SmallDialog : RetroWindow
     {
         var d = new SmallDialog(owner, title, PixelIcons.Get(icon));
         d.Body.Children.Add(Text(message));
-        d.AddButton("OK", isDefault: true, isCancel: true, result: true);
+        d.AddButton(Strings.T("Common.Ok"), isDefault: true, isCancel: true, result: true);
         d.ShowDialog();
     }
 
     public static string? AskMagnet(Window? owner)
     {
-        var d = new SmallDialog(owner, "Adicionar Link Magnet", PixelIcons.Get("Magnet"));
-        d.Body.Children.Add(Text("Cole o link magnet:", bold: true));
+        var d = new SmallDialog(owner, Strings.T("Magnet.Title"), PixelIcons.Get("Magnet"));
+        d.Body.Children.Add(Text(Strings.T("Magnet.Prompt"), bold: true));
         var box = new TextBox
         {
             Width = 440, Height = 64, TextWrapping = TextWrapping.Wrap, AcceptsReturn = false,
@@ -69,15 +70,15 @@ public partial class SmallDialog : RetroWindow
         error.Foreground = (Brush)d.FindResource("Alert");
         d.Body.Children.Add(error);
 
-        var ok = d.AddButton("OK", isDefault: true);
+        var ok = d.AddButton(Strings.T("Common.Ok"), isDefault: true);
         ok.Click += (_, _) =>
         {
             if (LinkValidator.IsValidMagnet(box.Text))
                 d.DialogResult = true;
             else
-                error.Text = "Isto não parece um link magnet válido (deve começar com magnet:?xt=...).";
+                error.Text = Strings.T("Magnet.Invalid");
         };
-        d.AddButton("Cancelar", isCancel: true);
+        d.AddButton(Strings.T("Common.Cancel"), isCancel: true);
         d.Loaded += (_, _) =>
         {
             box.Focus();
@@ -88,30 +89,37 @@ public partial class SmallDialog : RetroWindow
 
     public static (bool Confirmed, bool DeleteFiles) ConfirmRemove(Window? owner, string name)
     {
-        var d = new SmallDialog(owner, "Remover Transferência", PixelIcons.Get("Remove"));
-        d.Body.Children.Add(Text($"Remover \"{name}\" da lista?"));
-        var delete = new CheckBox { Content = "Apagar também os arquivos baixados do disco", Margin = new Thickness(0, 4, 0, 0) };
+        var d = new SmallDialog(owner, Strings.T("Remove.Title"), PixelIcons.Get("Remove"));
+        d.Body.Children.Add(Text(Strings.T("Remove.Question", name)));
+        var delete = new CheckBox { Content = Strings.T("Remove.DeleteFiles"), Margin = new Thickness(0, 4, 0, 0) };
         d.Body.Children.Add(delete);
-        d.AddButton("Remover", isDefault: true, result: true);
-        d.AddButton("Cancelar", isCancel: true);
+        d.AddButton(Strings.T("Tool.Remove"), isDefault: true, result: true);
+        d.AddButton(Strings.T("Common.Cancel"), isCancel: true);
         return d.ShowDialog() == true ? (true, delete.IsChecked == true) : (false, false);
+    }
+
+    public static bool ConfirmDeleteFile(Window? owner, string name)
+    {
+        var d = new SmallDialog(owner, Strings.T("Delete.Title"), PixelIcons.Get("Trash"));
+        d.Body.Children.Add(Text(Strings.T("Delete.Question", name), bold: true));
+        d.Body.Children.Add(Text(Strings.T("Delete.Note")));
+        d.AddButton(Strings.T("Delete.Button"), isDefault: true, result: true);
+        d.AddButton(Strings.T("Common.Cancel"), isCancel: true);
+        return d.ShowDialog() == true;
     }
 
     public static void About(Window? owner)
     {
-        var d = new SmallDialog(owner, "Sobre o Itorrent",
+        var d = new SmallDialog(owner, Strings.T("About.Title"),
             new BitmapImage(new Uri("pack://application:,,,/Itorrent;component/Assets/itorrent-48.png")));
         d.DialogIcon.Width = d.DialogIcon.Height = 48;
         RenderOptions.SetBitmapScalingMode(d.DialogIcon, BitmapScalingMode.HighQuality);
         var version = typeof(SmallDialog).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
         d.Body.Children.Add(Text("Itorrent", bold: true));
-        d.Body.Children.Add(Text($"Versão {version}\nCliente BitTorrent para Windows\nMotor: MonoTorrent · .NET 10"));
+        d.Body.Children.Add(Text(Strings.T("About.Body", version)));
         d.Body.Children.Add(new Rectangle { Height = 1, Fill = Brushes.Black, Margin = new Thickness(0, 4, 0, 8) });
-        d.Body.Children.Add(Text(
-            "Criar e usar um cliente BitTorrent é legal. Baixar ou compartilhar conteúdo protegido por direitos " +
-            "autorais sem autorização não é, e a responsabilidade é de quem usa.\n\n" +
-            "Lembre-se: todo peer do swarm vê o seu endereço IP."));
-        d.AddButton("OK", isDefault: true, isCancel: true, result: true);
+        d.Body.Children.Add(Text(Strings.T("About.Legal")));
+        d.AddButton(Strings.T("Common.Ok"), isDefault: true, isCancel: true, result: true);
         d.ShowDialog();
     }
 }

@@ -6,8 +6,10 @@
     <AnalysisMode>Recommended</AnalysisMode>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <LangVersion>latest</LangVersion>
-    <Company>Itorrent</Company>
+    <Company>Saipe</Company>
     <Product>Itorrent</Product>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
+    <!-- Versão limpa nas propriedades do .exe (sem o código do commit). -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 </Project>

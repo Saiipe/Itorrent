@@ -1,3 +1,4 @@
+using Itorrent.Core.Localization;
 using System.Security;
 using Itorrent.Core.Policies;
 using Itorrent.Core.Security;
@@ -31,6 +32,9 @@ public sealed class TorrentService : ITorrentService
     }
 
     public event EventHandler<TorrentCompletedEventArgs>? TorrentCompleted;
+
+    /// <summary>Como apagar um arquivo do disco. Padrão: apagar de vez; o Desktop usa a Lixeira.</summary>
+    public Action<string> FileDeleter { get; set; } = File.Delete;
 
     private ClientEngine Engine => _engine ?? throw new InvalidOperationException("Motor não iniciado");
 
@@ -72,12 +76,12 @@ public sealed class TorrentService : ITorrentService
         if (!LinkValidator.TryParseMagnet(magnetLink, out var magnet))
         {
             _log.Warning("Magnet recusado pela validação (tamanho {Length})", magnetLink?.Length ?? 0);
-            throw new TorrentInputException("Link magnet inválido ou malformado.");
+            throw new TorrentInputException(Strings.T("Err.InvalidMagnet"));
         }
 
         var id = IdOf(magnet.InfoHashes);
         if (Contains(id))
-            throw new TorrentInputException("Este torrent já está na lista de transferências.");
+            throw new TorrentInputException(Strings.T("Err.AlreadyAdded"));
 
         var trackers = magnet.AnnounceUrls.ToList();
         var forMetadata = trackers.Concat(EngineFactory.Profile(_settings.Current).PublicTrackers
@@ -87,7 +91,7 @@ public sealed class TorrentService : ITorrentService
 
         var metadata = await Engine.DownloadMetadataAsync(lookup, cancellationToken);
         if (!LinkValidator.TryLoadTorrent(metadata.Span, out var torrent))
-            throw new TorrentInputException("Os metadados recebidos dos peers são inválidos.");
+            throw new TorrentInputException(Strings.T("Err.BadMetadata"));
 
         return new TorrentPreview(torrent, metadata.ToArray(), trackers);
     }
@@ -97,10 +101,10 @@ public sealed class TorrentService : ITorrentService
         if (!LinkValidator.TryLoadTorrentFile(path, out var torrent, out var data))
         {
             _log.Warning("Arquivo .torrent recusado pela validação");
-            throw new TorrentInputException("Arquivo .torrent inválido, corrompido ou maior que 10 MB.");
+            throw new TorrentInputException(Strings.T("Err.BadTorrentFile"));
         }
         if (Contains(IdOf(torrent.InfoHashes)))
-            throw new TorrentInputException("Este torrent já está na lista de transferências.");
+            throw new TorrentInputException(Strings.T("Err.AlreadyAdded"));
 
         return new TorrentPreview(torrent, data, []);
     }
@@ -111,11 +115,11 @@ public sealed class TorrentService : ITorrentService
         ArgumentNullException.ThrowIfNull(selectedFiles);
 
         if (!PathGuard.IsValidSaveDirectory(saveDirectory))
-            throw new TorrentInputException("Pasta de destino inválida.");
+            throw new TorrentInputException(Strings.T("Err.InvalidFolder"));
         if (selectedFiles.Count == 0)
-            throw new TorrentInputException("Selecione pelo menos um arquivo.");
+            throw new TorrentInputException(Strings.T("Err.SelectOne"));
         if (Contains(preview.Id))
-            throw new TorrentInputException("Este torrent já está na lista de transferências.");
+            throw new TorrentInputException(Strings.T("Err.AlreadyAdded"));
 
         saveDirectory = Path.GetFullPath(saveDirectory);
         EnsureSafePaths(preview.Torrent, saveDirectory);
@@ -151,7 +155,7 @@ public sealed class TorrentService : ITorrentService
         if (manager.Files.Any(f => !Path.GetFullPath(f.FullPath).StartsWith(root, StringComparison.OrdinalIgnoreCase)))
         {
             await Engine.RemoveAsync(manager, RemoveMode.CacheDataOnly);
-            throw new TorrentInputException("O torrent contém caminhos fora da pasta de download.");
+            throw new TorrentInputException(Strings.T("Err.PathsOutside"));
         }
 
         for (var i = 0; i < manager.Files.Count; i++)
@@ -204,7 +208,7 @@ public sealed class TorrentService : ITorrentService
         catch (SecurityException ex)
         {
             Log.Warning("Torrent recusado: {Reason}", ex.Message);
-            throw new TorrentInputException($"Torrent recusado por segurança: {ex.Message}.", ex);
+            throw new TorrentInputException(Strings.T("Err.Security", ex.Message), ex);
         }
     }
 
@@ -218,7 +222,7 @@ public sealed class TorrentService : ITorrentService
             var free = new DriveInfo(root).AvailableFreeSpace;
             if (free < required)
                 throw new TorrentInputException(
-                    $"Espaço insuficiente no disco {root} ({Format.Bytes(free)} livres, {Format.Bytes(required)} necessários).");
+                    Strings.T("Err.NoSpace", root, Format.Bytes(free), Format.Bytes(required)));
         }
         catch (IOException)
         {
@@ -280,8 +284,7 @@ public sealed class TorrentService : ITorrentService
             return;
         entry.Record = entry.Record with { Status = StoredStatus.Paused };
         _repository.SetStatus(id, StoredStatus.Paused);
-        if (entry.Manager.State is not (TorrentState.Stopped or TorrentState.Stopping))
-            await entry.Manager.StopAsync(TimeSpan.FromSeconds(10));
+        await StopAndWaitAsync(entry.Manager);
     }
 
     public async Task ResumeAsync(string id)
@@ -294,6 +297,139 @@ public sealed class TorrentService : ITorrentService
             await entry.Manager.StartAsync();
     }
 
+    public TorrentPreview GetPreview(string id)
+    {
+        if (Find(id) is not { } entry || entry.Manager.Torrent is not { } torrent)
+            throw new TorrentInputException(Strings.T("Err.NoFileList"));
+        return new TorrentPreview(torrent, entry.Record.Metadata, entry.Record.ExtraTrackers);
+    }
+
+    public IReadOnlySet<int> GetSelectedFiles(string id) =>
+        Find(id) is { } entry
+            ? Enumerable.Range(0, entry.Manager.Files.Count).Where(i => !entry.Record.SkippedFiles.Contains(i)).ToHashSet()
+            : new HashSet<int>();
+
+    public async Task RedownloadAsync(string id, IReadOnlySet<int> selectedFiles)
+    {
+        ArgumentNullException.ThrowIfNull(selectedFiles);
+        if (Find(id) is not { } entry)
+            throw new TorrentInputException(Strings.T("Err.NotInList"));
+        if (selectedFiles.Count == 0)
+            throw new TorrentInputException(Strings.T("Err.SelectOne"));
+
+        var manager = entry.Manager;
+        var files = manager.Files;
+        var skipped = Enumerable.Range(0, files.Count).Where(i => !selectedFiles.Contains(i)).ToHashSet();
+        var newlySelected = files.Select((f, i) => (f, i))
+            .Where(x => entry.Record.SkippedFiles.Contains(x.i) && !skipped.Contains(x.i))
+            .Sum(x => x.f.Length);
+        EnsureFreeSpace(entry.Record.SavePath, newlySelected);
+
+        // Bloqueia a política de conclusão enquanto o torrent é parado e reconfigurado.
+        entry.CompletionHandled = true;
+        await StopAndWaitAsync(manager);
+
+        for (var i = 0; i < files.Count; i++)
+            await manager.SetFilePriorityAsync(files[i], skipped.Contains(i) ? Priority.DoNotDownload : Priority.Normal);
+
+        entry.Record = entry.Record with
+        {
+            SkippedFiles = skipped,
+            SelectedSize = files.Where((_, i) => !skipped.Contains(i)).Sum(f => f.Length),
+            Status = StoredStatus.Active,
+            CompletedAt = null,
+        };
+        _repository.Upsert(entry.Record);
+        entry.CompletionHandled = false;
+        _log.Information("Baixando novamente {Id} ({Files} de {Total} arquivos)", id, selectedFiles.Count, files.Count);
+
+        // Confere o que já está no disco (arquivos apagados voltam a ser baixados) e inicia.
+        // Pode levar um tempo em torrents grandes; roda em segundo plano com o status "Verificando".
+        _ = RecheckAndStartAsync(entry);
+    }
+
+    public async Task SetFileSelectedAsync(string id, int fileIndex, bool selected)
+    {
+        if (Find(id) is not { } entry)
+            throw new TorrentInputException(Strings.T("Err.NotInList"));
+        var manager = entry.Manager;
+        var files = manager.Files;
+        if (fileIndex < 0 || fileIndex >= files.Count)
+            return;
+
+        var selection = GetSelectedFiles(id).ToHashSet();
+        if (selected)
+            selection.Add(fileIndex);
+        else
+            selection.Remove(fileIndex);
+        if (selection.Count == 0)
+            throw new TorrentInputException(Strings.T("Err.SelectOne"));
+
+        // Algum arquivo marcado foi apagado do disco? Aí precisa conferir tudo de novo.
+        if (selection.Any(i => files[i].BitField.TrueCount > 0 && !File.Exists(files[i].FullPath)))
+        {
+            await RedownloadAsync(id, selection);
+            return;
+        }
+
+        var file = files[fileIndex];
+        if (selected && entry.Record.SkippedFiles.Contains(fileIndex))
+            EnsureFreeSpace(entry.Record.SavePath, file.Length);
+
+        // Caminho rápido: só muda a prioridade. O motor já sabe o que tem e baixa só o que falta.
+        await manager.SetFilePriorityAsync(file, selected ? Priority.Normal : Priority.DoNotDownload);
+
+        var skipped = Enumerable.Range(0, files.Count).Where(i => !selection.Contains(i)).ToHashSet();
+        var needsDownload = selected && file.BitField.PercentComplete < 100.0;
+        entry.Record = entry.Record with
+        {
+            SkippedFiles = skipped,
+            SelectedSize = files.Where((_, i) => !skipped.Contains(i)).Sum(f => f.Length),
+            Status = needsDownload && entry.Record.Status == StoredStatus.Completed ? StoredStatus.Active : entry.Record.Status,
+            CompletedAt = needsDownload ? null : entry.Record.CompletedAt,
+        };
+        _repository.Upsert(entry.Record);
+        _log.Information("Arquivo {Index} de {Id}: {State}", fileIndex, id, selected ? "marcado" : "desmarcado");
+
+        if (!needsDownload)
+            return;
+        entry.CompletionHandled = false;
+
+        // Concluído/parado: volta a baixar. Semeando: reinicia para sair do modo semente.
+        if (entry.Record.Status == StoredStatus.Active
+            && manager.State is TorrentState.Stopped or TorrentState.Stopping or TorrentState.Error or TorrentState.Seeding)
+        {
+            await StopAndWaitAsync(manager);
+            await manager.StartAsync();
+        }
+    }
+
+    /// <summary>
+    /// Para o torrent e espera terminar. Se ele já estiver parando (ex.: logo depois de concluir),
+    /// só espera: pedir para parar de novo nesse estado gera erro no motor.
+    /// </summary>
+    private static async Task StopAndWaitAsync(TorrentManager manager)
+    {
+        if (manager.State is not (TorrentState.Stopped or TorrentState.Stopping or TorrentState.Error))
+            await manager.StopAsync(TimeSpan.FromSeconds(10));
+
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (manager.State == TorrentState.Stopping && DateTime.UtcNow < deadline)
+            await Task.Delay(100);
+    }
+
+    private async Task RecheckAndStartAsync(Entry entry)
+    {
+        try
+        {
+            await entry.Manager.HashCheckAsync(autoStart: true);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Falha ao verificar {Id}", entry.Record.Id);
+        }
+    }
+
     public async Task RemoveAsync(string id, bool deleteFiles)
     {
         if (Find(id) is not { } entry)
@@ -301,8 +437,7 @@ public sealed class TorrentService : ITorrentService
         lock (_gate)
             _entries.Remove(id);
 
-        if (entry.Manager.State is not (TorrentState.Stopped or TorrentState.Stopping or TorrentState.Error))
-            await entry.Manager.StopAsync(TimeSpan.FromSeconds(10));
+        await StopAndWaitAsync(entry.Manager);
         await Engine.RemoveAsync(entry.Manager,
             deleteFiles ? RemoveMode.CacheDataAndDownloadedData : RemoveMode.CacheDataOnly);
         _repository.Delete(id);
@@ -357,6 +492,8 @@ public sealed class TorrentService : ITorrentService
         var m = e.Manager;
         var r = e.Record;
 
+        SyncDeletedFiles(e, now);
+
         if (!e.CompletionHandled && PolicyEngine.IsPartialCompletion(m.State, m.PartialProgress))
             _ = HandleCompletionAsync(e);
 
@@ -384,7 +521,7 @@ public sealed class TorrentService : ITorrentService
             rate, m.Monitor.UploadRate, eta,
             m.Peers.Seeds, m.Peers.Leechs, seedsTotal, leechsTotal,
             m.ContainingDirectory, risky,
-            m.State == TorrentState.Error ? m.Error?.Exception?.Message ?? "Erro de disco" : null,
+            m.State == TorrentState.Error ? m.Error?.Exception?.Message ?? Strings.T("Err.Disk") : null,
             r.AddedAt);
     }
 
@@ -439,9 +576,101 @@ public sealed class TorrentService : ITorrentService
         return entry.Manager.Files.Select((f, i) =>
         {
             var selected = !entry.Record.SkippedFiles.Contains(i);
-            var progress = completed && selected ? 100.0 : f.BitField.PercentComplete;
-            return new FileSnapshot(i, f.Path, f.Length, progress, selected, FileRiskChecker.GetRisk(f.Path));
+            var exists = File.Exists(f.FullPath);
+            var deleted = IsDeleted(f, exists);
+            var progress = deleted ? 0 : completed && selected ? 100.0 : f.BitField.PercentComplete;
+            return new FileSnapshot(i, f.Path, f.Length, progress, selected, FileRiskChecker.GetRisk(f.Path), exists, deleted);
         }).ToList();
+    }
+
+    /// <summary>Arquivo que já tinha dados baixados e não está mais no disco (apagado).</summary>
+    private static bool IsDeleted(ITorrentManagerFile file, bool exists) =>
+        !exists && file.BitField.TrueCount > 0;
+
+    /// <summary>
+    /// A cada 3 s confere o disco: arquivo marcado que foi apagado (pelo Explorer, por exemplo)
+    /// é desmarcado sozinho. Para baixar de novo, basta marcar a caixinha.
+    /// </summary>
+    private void SyncDeletedFiles(Entry e, DateTime now)
+    {
+        if (now - e.LastDeletedCheck < TimeSpan.FromSeconds(3))
+            return;
+        e.LastDeletedCheck = now;
+        var files = e.Manager.Files;
+        var deleted = Enumerable.Range(0, files.Count)
+            .Where(i => !e.Record.SkippedFiles.Contains(i) && IsDeleted(files[i], File.Exists(files[i].FullPath)))
+            .ToList();
+        if (deleted.Count == 0)
+            return;
+        _log.Information("{Count} arquivo(s) de {Id} apagado(s) do disco: desmarcados", deleted.Count, e.Record.Id);
+        _ = SkipFilesAsync(e, deleted);
+    }
+
+    /// <summary>Desmarca arquivos (não baixar). Atualiza a lista na hora; o motor em seguida.</summary>
+    private async Task SkipFilesAsync(Entry entry, IReadOnlyCollection<int> indexes)
+    {
+        var files = entry.Manager.Files;
+        var skipped = entry.Record.SkippedFiles.Concat(indexes).ToHashSet();
+        entry.Record = entry.Record with
+        {
+            SkippedFiles = skipped,
+            SelectedSize = files.Where((_, i) => !skipped.Contains(i)).Sum(f => f.Length),
+        };
+        _repository.Upsert(entry.Record);
+        try
+        {
+            foreach (var i in indexes)
+                await entry.Manager.SetFilePriorityAsync(files[i], Priority.DoNotDownload);
+        }
+        catch (Exception ex)
+        {
+            _log.Warning(ex, "Falha ao desmarcar arquivos de {Id}", entry.Record.Id);
+        }
+    }
+
+    public async Task DeleteFileAsync(string id, int fileIndex)
+    {
+        if (Find(id) is not { } entry)
+            throw new TorrentInputException(Strings.T("Err.NotInList"));
+        var manager = entry.Manager;
+        var files = manager.Files;
+        if (fileIndex < 0 || fileIndex >= files.Count)
+            return;
+        var file = files[fileIndex];
+
+        // Só apaga o que estiver dentro da pasta do download.
+        var root = Path.GetFullPath(entry.Record.SavePath).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var path = Path.GetFullPath(file.FullPath);
+        if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            throw new TorrentInputException(Strings.T("Err.PathsOutside"));
+
+        // Para o torrent para o motor soltar o arquivo, apaga e confere.
+        var wasRunning = manager.State is not (TorrentState.Stopped or TorrentState.Error);
+        entry.CompletionHandled = true;
+        await StopAndWaitAsync(manager);
+        try
+        {
+            if (File.Exists(path))
+                FileDeleter(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException)
+        {
+            throw new TorrentInputException(Strings.T("Err.DeleteFailed", ex.Message), ex);
+        }
+        finally
+        {
+            entry.CompletionHandled = entry.Record.Status == StoredStatus.Completed;
+            if (wasRunning && entry.Record.Status == StoredStatus.Active)
+                await manager.StartAsync();
+        }
+
+        if (File.Exists(path))
+            throw new TorrentInputException(Strings.T("Err.DeleteFailed", Path.GetFileName(path)));
+        _log.Information("Arquivo {Index} de {Id} apagado do disco", fileIndex, id);
+
+        // Desmarca: apagado não volta a ser baixado, a menos que você marque a caixinha de novo.
+        if (!entry.Record.SkippedFiles.Contains(fileIndex))
+            await SkipFilesAsync(entry, [fileIndex]);
     }
 
     public GlobalStats GetGlobalStats()
@@ -504,6 +733,7 @@ public sealed class TorrentService : ITorrentService
         public TorrentRecord Record { get; set; } = record;
         public bool CompletionHandled { get; set; }
         public DateTime LastScrape { get; set; } = DateTime.MinValue;
+        public DateTime LastDeletedCheck { get; set; } = DateTime.MinValue;
     }
 
     private sealed class ManagerControl(TorrentManager manager) : ITorrentControl

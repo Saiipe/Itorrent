@@ -1,3 +1,4 @@
+using Itorrent.Core.Localization;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -31,6 +32,7 @@ public interface IDialogs
     string? PickTorrentFile();
     void ShowAddTorrent(AddTorrentViewModel vm);
     (bool Confirmed, bool DeleteFiles) ConfirmRemove(string name);
+    bool ConfirmDeleteFile(string name);
     bool ShowSettings();
     void ShowAbout();
     void ShowError(string message);
@@ -65,12 +67,26 @@ public sealed class MainViewModel : ObservableObject
         PauseCommand = new AsyncRelayCommand(() => Run(s => _service.PauseAsync(s.Id)), () => Selected?.CanPause == true);
         ResumeCommand = new AsyncRelayCommand(() => Run(s => _service.ResumeAsync(s.Id)), () => Selected?.CanResume == true);
         RemoveCommand = new AsyncRelayCommand(RemoveAsync, () => Selected is not null);
+        ToggleFileCommand = new AsyncRelayCommand<FileItemViewModel>(ToggleFileAsync);
+        DeleteFileCommand = new AsyncRelayCommand<FileItemViewModel>(DeleteFileAsync);
+        RedownloadCommand = new RelayCommand(Redownload,
+            () => Selected is { Status: not (TorrentStatus.FetchingMetadata or TorrentStatus.Stopping) });
         OpenFolderCommand = new RelayCommand(OpenFolder, () => Selected is not null);
         PauseAllCommand = new AsyncRelayCommand(() => _service.PauseAllAsync());
         ResumeAllCommand = new AsyncRelayCommand(() => _service.ResumeAllAsync());
         SettingsCommand = new AsyncRelayCommand(OpenSettingsAsync);
         AboutCommand = new RelayCommand(_dialogs.ShowAbout);
         FilterCommand = new RelayCommand<TorrentFilter>(f => Filter = f);
+
+        // Troca de idioma: todos os textos calculados aqui são refeitos na hora.
+        Strings.LanguageChanged += (_, _) =>
+        {
+            OnPropertyChanged(string.Empty);
+            foreach (var t in Torrents)
+                t.Refresh();
+            foreach (var f in Files)
+                f.Refresh();
+        };
 
         _timer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Tick(),
             Dispatcher.CurrentDispatcher);
@@ -91,6 +107,9 @@ public sealed class MainViewModel : ObservableObject
     public AsyncRelayCommand PauseCommand { get; }
     public AsyncRelayCommand ResumeCommand { get; }
     public AsyncRelayCommand RemoveCommand { get; }
+    public RelayCommand RedownloadCommand { get; }
+    public AsyncRelayCommand<FileItemViewModel> ToggleFileCommand { get; }
+    public AsyncRelayCommand<FileItemViewModel> DeleteFileCommand { get; }
     public RelayCommand OpenFolderCommand { get; }
     public AsyncRelayCommand PauseAllCommand { get; }
     public AsyncRelayCommand ResumeAllCommand { get; }
@@ -126,10 +145,10 @@ public sealed class MainViewModel : ObservableObject
 
     public string FilterTitle => Filter switch
     {
-        TorrentFilter.Downloading => "Transferências — Baixando",
-        TorrentFilter.Completed => "Transferências — Concluídos",
-        TorrentFilter.Paused => "Transferências — Pausados",
-        _ => "Transferências",
+        TorrentFilter.Downloading => Strings.T("Main.TransfersDownloading"),
+        TorrentFilter.Completed => Strings.T("Main.TransfersCompleted"),
+        TorrentFilter.Paused => Strings.T("Main.TransfersPaused"),
+        _ => Strings.T("Main.Transfers"),
     };
 
     /// <summary>Botão Modo Turbo: aplica de uma vez todos os ajustes de velocidade.</summary>
@@ -149,12 +168,12 @@ public sealed class MainViewModel : ObservableObject
 
     public string DownText => "Down: " + Format.Rate(_stats?.DownloadRate ?? 0);
     public string UpText => "Up: " + Format.Rate(_stats?.UploadRate ?? 0);
-    public string CountText => _stats is null ? "" : $"Torrents: {_stats.ActiveTorrents} ativos / {_stats.TotalTorrents}";
-    public string PortText => _stats is null ? "" : $"Porta: {_stats.ListenPort}";
-    public string DhtText => _stats is null ? "" : "DHT: " + DhtLabel(_stats.DhtStatus);
-    public string TurboStatusText => IsTurbo ? "MODO TURBO" : "Normal";
+    public string CountText => _stats is null ? "" : Strings.T("StatusBar.Torrents", _stats.ActiveTorrents, _stats.TotalTorrents);
+    public string PortText => _stats is null ? "" : Strings.T("StatusBar.Port", _stats.ListenPort);
+    public string DhtText => _stats is null ? "" : Strings.T("StatusBar.Dht", DhtLabel(_stats.DhtStatus));
+    public string TurboStatusText => IsTurbo ? Strings.T("StatusBar.Turbo") : Strings.T("StatusBar.Normal");
 
-    public string DetailsTitle => Selected is null ? "Arquivos" : $"Arquivos — {Selected.Name}";
+    public string DetailsTitle => Selected is null ? Strings.T("Main.Files") : Strings.T("Main.FilesOf", Selected.Name);
 
     public void Start()
     {
@@ -254,6 +273,7 @@ public sealed class MainViewModel : ObservableObject
         PauseCommand.NotifyCanExecuteChanged();
         ResumeCommand.NotifyCanExecuteChanged();
         RemoveCommand.NotifyCanExecuteChanged();
+        RedownloadCommand.NotifyCanExecuteChanged();
         OpenFolderCommand.NotifyCanExecuteChanged();
     }
 
@@ -268,9 +288,9 @@ public sealed class MainViewModel : ObservableObject
 
     private static string DhtLabel(string state) => state switch
     {
-        "Ready" => "pronto",
-        "Initialising" => "iniciando",
-        "NotReady" => "desligado",
+        "Ready" => Strings.T("Dht.Ready"),
+        "Initialising" => Strings.T("Dht.Starting"),
+        "NotReady" => Strings.T("Dht.Off"),
         _ => state.ToLowerInvariant(),
     };
 
@@ -287,7 +307,7 @@ public sealed class MainViewModel : ObservableObject
         else
         {
             Log.Warning("Entrada externa recusada");
-            _dialogs.ShowError("O Itorrent só abre links magnet e arquivos .torrent.");
+            _dialogs.ShowError(Strings.T("Main.OnlyMagnet"));
         }
     }
 
@@ -322,7 +342,7 @@ public sealed class MainViewModel : ObservableObject
         if (!LinkValidator.IsValidMagnet(link))
         {
             Log.Warning("Magnet recusado pela validação");
-            _dialogs.ShowError("Link magnet inválido ou malformado.");
+            _dialogs.ShowError(Strings.T("Err.InvalidMagnet"));
             return;
         }
         var vm = new AddTorrentViewModel(_service, _settings, _pickFolder);
@@ -348,6 +368,79 @@ public sealed class MainViewModel : ObservableObject
         Tick();
     }
 
+    /// <summary>
+    /// Caixinha "Baixar" na lista de Arquivos: marcar um arquivo ignorado começa a baixá-lo na hora;
+    /// desmarcar para de baixá-lo.
+    /// </summary>
+    private async Task ToggleFileAsync(FileItemViewModel? file)
+    {
+        if (file is null || Selected is not { } torrent)
+            return;
+        try
+        {
+            await _service.SetFileSelectedAsync(torrent.Id, file.File.Index, !file.File.Selected);
+        }
+        catch (TorrentInputException ex)
+        {
+            _dialogs.ShowError(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Falha ao marcar arquivo");
+            _dialogs.ShowError(ex.Message);
+        }
+        // Se não mudou nada (ex.: era o último arquivo marcado), a caixinha volta ao estado real.
+        file.Refresh();
+        Tick();
+    }
+
+    /// <summary>Lixeira na lista de Arquivos: confirma, manda para a Lixeira e confere se saiu do disco.</summary>
+    private async Task DeleteFileAsync(FileItemViewModel? file)
+    {
+        if (file is null || Selected is not { } torrent)
+            return;
+        if (!_dialogs.ConfirmDeleteFile(Path.GetFileName(file.Path)))
+            return;
+        await RunFileAction(file, () => _service.DeleteFileAsync(torrent.Id, file.File.Index));
+    }
+
+    private async Task RunFileAction(FileItemViewModel file, Func<Task> action)
+    {
+        try
+        {
+            await action();
+        }
+        catch (TorrentInputException ex)
+        {
+            _dialogs.ShowError(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Falha na ação do arquivo");
+            _dialogs.ShowError(ex.Message);
+        }
+        file.Refresh();
+        Tick();
+    }
+
+    /// <summary>Reabre a seleção de arquivos de um torrent da lista e baixa de novo.</summary>
+    private void Redownload()
+    {
+        if (Selected is not { Snapshot: { } snapshot } s)
+            return;
+        try
+        {
+            var vm = new AddTorrentViewModel(_service, _settings, _pickFolder);
+            vm.SetExisting(s.Id, _service.GetPreview(s.Id), snapshot.SavePath, _service.GetSelectedFiles(s.Id));
+            _dialogs.ShowAddTorrent(vm);
+        }
+        catch (TorrentInputException ex)
+        {
+            _dialogs.ShowError(ex.Message);
+        }
+        Tick();
+    }
+
     private async Task RemoveAsync()
     {
         if (Selected is not { } s)
@@ -367,7 +460,7 @@ public sealed class MainViewModel : ObservableObject
         var dir = Directory.Exists(s.SavePath) ? s.SavePath : Path.GetDirectoryName(s.SavePath);
         if (dir is null || !Directory.Exists(dir))
         {
-            _dialogs.ShowError("A pasta ainda não existe.");
+            _dialogs.ShowError(Strings.T("Main.FolderMissing"));
             return;
         }
         Process.Start(new ProcessStartInfo("explorer.exe") { ArgumentList = { dir }, UseShellExecute = false });
@@ -382,7 +475,7 @@ public sealed class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             Log.Error(ex, "Falha ao aplicar o Modo Turbo");
-            _dialogs.ShowError("Não foi possível aplicar o Modo Turbo: " + ex.Message);
+            _dialogs.ShowError(Strings.T("Main.TurboFailed", ex.Message));
         }
     }
 
@@ -398,7 +491,7 @@ public sealed class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             Log.Error(ex, "Falha ao aplicar configurações");
-            _dialogs.ShowError("Algumas configurações não puderam ser aplicadas: " + ex.Message);
+            _dialogs.ShowError(Strings.T("Main.SettingsFailed", ex.Message));
         }
         if (_isTurbo != _settings.Current.TurboMode)
         {

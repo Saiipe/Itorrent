@@ -32,6 +32,7 @@ foreach ($s in $smallSizes) {
 }
 
 # Imagem grande (lateral das telas de boas-vindas e conclusão): azul-marinho do tema.
+# Só o nome do app, sem frases, porque a mesma imagem vale para todos os idiomas do instalador.
 $navy = [System.Drawing.Color]::FromArgb(0, 0, 128)
 $largeSizes = @(@(164, 314), @(192, 386), @(246, 459), @(273, 556), @(328, 604), @(355, 700), @(410, 797))
 foreach ($s in $largeSizes) {
@@ -46,11 +47,8 @@ foreach ($s in $largeSizes) {
     $center = New-Object System.Drawing.StringFormat
     $center.Alignment = 'Center'
     $title = New-Object System.Drawing.Font 'Microsoft Sans Serif', ([single](17 * $scale)), ([System.Drawing.FontStyle]::Bold), ([System.Drawing.GraphicsUnit]::Pixel)
-    $sub = New-Object System.Drawing.Font 'Microsoft Sans Serif', ([single](11 * $scale)), ([System.Drawing.FontStyle]::Regular), ([System.Drawing.GraphicsUnit]::Pixel)
     $textTop = $top + $side + [int](14 * $scale)
     $g.DrawString('Itorrent', $title, [System.Drawing.Brushes]::White, (New-Object System.Drawing.RectangleF 0, $textTop, $w, (30 * $scale)), $center)
-    $g.DrawString("Cliente BitTorrent`nsem anúncios", $sub, (New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(192, 192, 192))),
-        (New-Object System.Drawing.RectangleF 0, ($textTop + 26 * $scale), $w, (40 * $scale)), $center)
 
     $bmp.Save((Join-Path $out "large-$w.bmp"), [System.Drawing.Imaging.ImageFormat]::Bmp)
     $g.Dispose(); $bmp.Dispose()

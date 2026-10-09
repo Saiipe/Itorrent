@@ -1,3 +1,4 @@
+using Itorrent.Core.Localization;
 using System.IO;
 using System.Windows;
 using Itorrent.Core.Storage;
@@ -15,7 +16,7 @@ public sealed class Dialogs(ISettingsService settings) : IDialogs
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "Escolha onde salvar",
+            Title = Strings.T("Pick.Folder"),
             InitialDirectory = Directory.Exists(current) ? current : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         };
         return dialog.ShowDialog() == true ? dialog.FolderName : null;
@@ -27,8 +28,8 @@ public sealed class Dialogs(ISettingsService settings) : IDialogs
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Abrir arquivo .torrent",
-            Filter = "Arquivos torrent (*.torrent)|*.torrent",
+            Title = Strings.T("Pick.Torrent"),
+            Filter = Strings.T("Pick.Filter"),
             CheckFileExists = true,
         };
         return dialog.ShowDialog() == true ? dialog.FileName : null;
@@ -44,6 +45,8 @@ public sealed class Dialogs(ISettingsService settings) : IDialogs
     }
 
     public (bool Confirmed, bool DeleteFiles) ConfirmRemove(string name) => SmallDialog.ConfirmRemove(Owner, name);
+
+    public bool ConfirmDeleteFile(string name) => SmallDialog.ConfirmDeleteFile(Owner, name);
 
     public bool ShowSettings()
     {

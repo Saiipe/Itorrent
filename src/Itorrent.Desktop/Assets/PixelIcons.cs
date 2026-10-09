@@ -305,6 +305,25 @@ public static class PixelIcons
             "................",
             "................",
         ],
+        ["Trash"] =
+        [
+            "................",
+            ".....KKKKKK.....",
+            ".....K....K.....",
+            "..KKKKKKKKKKKK..",
+            "..KWWWWWWWWWLK..",
+            "..KKKKKKKKKKKK..",
+            "...KWLWLWLWDK...",
+            "...KWLWLWLWDK...",
+            "...KWLWLWLWDK...",
+            "...KWLWLWLWDK...",
+            "...KWLWLWLWDK...",
+            "...KWLWLWLWDK...",
+            "...KWLWLWLWDK...",
+            "...KLLLLLLLDK...",
+            "....KKKKKKKK....",
+            "................",
+        ],
         ["Info"] =
         [
             "................",

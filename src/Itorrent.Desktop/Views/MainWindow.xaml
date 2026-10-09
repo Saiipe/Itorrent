@@ -1,10 +1,11 @@
 <c:RetroWindow x:Class="Itorrent.Desktop.Views.MainWindow"
                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:l="clr-namespace:Itorrent.Desktop.Localization"
                xmlns:c="clr-namespace:Itorrent.Desktop.Controls"
                xmlns:a="clr-namespace:Itorrent.Desktop.Assets"
                xmlns:vm="clr-namespace:Itorrent.Desktop.ViewModels"
-               Title="Itorrent - Gerenciador de Transferências"
+               Title="{l:L App.Title}"
                Width="1060" Height="700" MinWidth="720" MinHeight="460"
                WindowStartupLocation="CenterScreen" AllowDrop="True">
     <c:RetroWindow.Resources>
@@ -42,13 +43,38 @@
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         </Style>
 
+        <Style x:Key="FileAction" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent" Padding="0" BorderThickness="1" BorderBrush="Transparent"
+                                VerticalAlignment="Center">
+                            <ContentPresenter x:Name="Content" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Shadow}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="Black" />
+                                <Setter TargetName="Content" Property="Margin" Value="1,1,-1,-1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <ContextMenu x:Key="TorrentMenu">
-            <MenuItem Header="_Pausar" Command="{Binding PauseCommand}" />
-            <MenuItem Header="_Retomar" Command="{Binding ResumeCommand}" />
+            <MenuItem Header="{l:L Menu.Pause}" Command="{Binding PauseCommand}" />
+            <MenuItem Header="{l:L Menu.Resume}" Command="{Binding ResumeCommand}" />
+            <MenuItem Header="{l:L Menu.Redownload}" Command="{Binding RedownloadCommand}" />
             <Separator />
-            <MenuItem Header="Abrir _pasta" Command="{Binding OpenFolderCommand}" />
+            <MenuItem Header="{l:L Menu.OpenFolder}" Command="{Binding OpenFolderCommand}" />
             <Separator />
-            <MenuItem Header="Re_mover..." Command="{Binding RemoveCommand}" />
+            <MenuItem Header="{l:L Menu.Remove}" Command="{Binding RemoveCommand}" />
         </ContextMenu>
     </c:RetroWindow.Resources>
 
@@ -63,35 +89,36 @@
         <!-- ===== Menu ===== -->
         <Border DockPanel.Dock="Top" BorderBrush="Black" BorderThickness="0,0,0,1">
             <Menu>
-                <MenuItem Header="_Arquivo">
-                    <MenuItem Header="Abrir arquivo ._torrent..." InputGestureText="Ctrl+O" Command="{Binding AddFileCommand}" />
-                    <MenuItem Header="Adicionar link _magnet..." InputGestureText="Ctrl+M" Command="{Binding AddMagnetCommand}" />
+                <MenuItem Header="{l:L Menu.File}">
+                    <MenuItem Header="{l:L Menu.OpenTorrent}" InputGestureText="Ctrl+O" Command="{Binding AddFileCommand}" />
+                    <MenuItem Header="{l:L Menu.AddMagnet}" InputGestureText="Ctrl+M" Command="{Binding AddMagnetCommand}" />
                     <Separator />
-                    <MenuItem Header="_Ocultar na bandeja" Click="HideToTray_Click" />
-                    <MenuItem Header="_Sair" Click="Exit_Click" />
+                    <MenuItem Header="{l:L Menu.HideToTray}" Click="HideToTray_Click" />
+                    <MenuItem Header="{l:L Menu.Exit}" Click="Exit_Click" />
                 </MenuItem>
-                <MenuItem Header="_Transferências">
-                    <MenuItem Header="_Pausar" Command="{Binding PauseCommand}" />
-                    <MenuItem Header="_Retomar" Command="{Binding ResumeCommand}" />
-                    <MenuItem Header="Re_mover..." InputGestureText="Del" Command="{Binding RemoveCommand}" />
-                    <MenuItem Header="Abrir _pasta" Command="{Binding OpenFolderCommand}" />
+                <MenuItem Header="{l:L Menu.Transfers}">
+                    <MenuItem Header="{l:L Menu.Pause}" Command="{Binding PauseCommand}" />
+                    <MenuItem Header="{l:L Menu.Resume}" Command="{Binding ResumeCommand}" />
+                    <MenuItem Header="{l:L Menu.Redownload}" Command="{Binding RedownloadCommand}" />
+                    <MenuItem Header="{l:L Menu.Remove}" InputGestureText="Del" Command="{Binding RemoveCommand}" />
+                    <MenuItem Header="{l:L Menu.OpenFolder}" Command="{Binding OpenFolderCommand}" />
                     <Separator />
-                    <MenuItem Header="Pausar _tudo" Command="{Binding PauseAllCommand}" />
-                    <MenuItem Header="Retomar t_udo" Command="{Binding ResumeAllCommand}" />
+                    <MenuItem Header="{l:L Menu.PauseAll}" Command="{Binding PauseAllCommand}" />
+                    <MenuItem Header="{l:L Menu.ResumeAll}" Command="{Binding ResumeAllCommand}" />
                 </MenuItem>
-                <MenuItem Header="_Opções">
-                    <MenuItem Header="Modo _Turbo" IsCheckable="True" IsChecked="{Binding IsTurbo}" />
+                <MenuItem Header="{l:L Menu.Options}">
+                    <MenuItem Header="{l:L Menu.Turbo}" IsCheckable="True" IsChecked="{Binding IsTurbo}" />
                     <Separator />
-                    <MenuItem Header="_Configurações..." Command="{Binding SettingsCommand}" />
+                    <MenuItem Header="{l:L Menu.Settings}" Command="{Binding SettingsCommand}" />
                 </MenuItem>
-                <MenuItem Header="_Janela">
-                    <MenuItem Header="1 _Todos" Command="{Binding FilterCommand}" CommandParameter="{x:Static vm:TorrentFilter.All}" />
-                    <MenuItem Header="2 _Baixando" Command="{Binding FilterCommand}" CommandParameter="{x:Static vm:TorrentFilter.Downloading}" />
-                    <MenuItem Header="3 _Concluídos" Command="{Binding FilterCommand}" CommandParameter="{x:Static vm:TorrentFilter.Completed}" />
-                    <MenuItem Header="4 _Pausados" Command="{Binding FilterCommand}" CommandParameter="{x:Static vm:TorrentFilter.Paused}" />
+                <MenuItem Header="{l:L Menu.Window}">
+                    <MenuItem Header="{l:L Menu.FilterAll}" Command="{Binding FilterCommand}" CommandParameter="{x:Static vm:TorrentFilter.All}" />
+                    <MenuItem Header="{l:L Menu.FilterDownloading}" Command="{Binding FilterCommand}" CommandParameter="{x:Static vm:TorrentFilter.Downloading}" />
+                    <MenuItem Header="{l:L Menu.FilterCompleted}" Command="{Binding FilterCommand}" CommandParameter="{x:Static vm:TorrentFilter.Completed}" />
+                    <MenuItem Header="{l:L Menu.FilterPaused}" Command="{Binding FilterCommand}" CommandParameter="{x:Static vm:TorrentFilter.Paused}" />
                 </MenuItem>
                 <MenuItem Header="_?">
-                    <MenuItem Header="_Sobre o Itorrent..." Command="{Binding AboutCommand}" />
+                    <MenuItem Header="{l:L Menu.About}" Command="{Binding AboutCommand}" />
                 </MenuItem>
             </Menu>
         </Border>
@@ -101,7 +128,7 @@
             <DockPanel>
                 <ToggleButton DockPanel.Dock="Right" Style="{StaticResource ToolToggle}" MinWidth="96"
                               IsChecked="{Binding IsTurbo}"
-                              ToolTip="Modo Turbo: liga UPnP, DHT, PEX, descoberta local, trackers públicos e até 500 conexões por torrent.">
+                              ToolTip="{l:L Tool.TurboTip}">
                     <StackPanel>
                         <Image Source="{a:Pixel Turbo}" Width="32" Height="32" />
                         <TextBlock x:Name="TurboText" Text="{Binding TurboLabel}" HorizontalAlignment="Center">
@@ -118,48 +145,48 @@
                     </StackPanel>
                 </ToggleButton>
                 <StackPanel Orientation="Horizontal">
-                    <Button Style="{StaticResource ToolButtonB}" Command="{Binding AddFileCommand}" ToolTip="Abrir arquivo .torrent (Ctrl+O)">
+                    <Button Style="{StaticResource ToolButtonB}" Command="{Binding AddFileCommand}" ToolTip="{l:L Tool.OpenTip}">
                         <StackPanel>
                             <Image Source="{a:Pixel TorrentFile}" Width="32" Height="32" />
-                            <TextBlock Text="Abrir" HorizontalAlignment="Center" />
+                            <TextBlock Text="{l:L Tool.Open}" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolButtonB}" Command="{Binding AddMagnetCommand}" ToolTip="Adicionar link magnet (Ctrl+M)">
+                    <Button Style="{StaticResource ToolButtonB}" Command="{Binding AddMagnetCommand}" ToolTip="{l:L Tool.MagnetTip}">
                         <StackPanel>
                             <Image Source="{a:Pixel Magnet}" Width="32" Height="32" />
-                            <TextBlock Text="Magnet" HorizontalAlignment="Center" />
+                            <TextBlock Text="{l:L Tool.Magnet}" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <Rectangle Width="1" Fill="{StaticResource Shadow}" Margin="4,2,6,2" />
-                    <Button Style="{StaticResource ToolButtonB}" Command="{Binding ResumeCommand}" ToolTip="Retomar">
+                    <Button Style="{StaticResource ToolButtonB}" Command="{Binding ResumeCommand}" ToolTip="{l:L Tool.Resume}">
                         <StackPanel>
                             <Image Source="{a:Pixel Play}" Width="32" Height="32" />
-                            <TextBlock Text="Retomar" HorizontalAlignment="Center" />
+                            <TextBlock Text="{l:L Tool.Resume}" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolButtonB}" Command="{Binding PauseCommand}" ToolTip="Pausar">
+                    <Button Style="{StaticResource ToolButtonB}" Command="{Binding PauseCommand}" ToolTip="{l:L Tool.Pause}">
                         <StackPanel>
                             <Image Source="{a:Pixel Pause}" Width="32" Height="32" />
-                            <TextBlock Text="Pausar" HorizontalAlignment="Center" />
+                            <TextBlock Text="{l:L Tool.Pause}" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolButtonB}" Command="{Binding RemoveCommand}" ToolTip="Remover (Del)">
+                    <Button Style="{StaticResource ToolButtonB}" Command="{Binding RemoveCommand}" ToolTip="{l:L Tool.RemoveTip}">
                         <StackPanel>
                             <Image Source="{a:Pixel Remove}" Width="32" Height="32" />
-                            <TextBlock Text="Remover" HorizontalAlignment="Center" />
+                            <TextBlock Text="{l:L Tool.Remove}" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <Rectangle Width="1" Fill="{StaticResource Shadow}" Margin="4,2,6,2" />
-                    <Button Style="{StaticResource ToolButtonB}" Command="{Binding OpenFolderCommand}" ToolTip="Abrir a pasta do download">
+                    <Button Style="{StaticResource ToolButtonB}" Command="{Binding OpenFolderCommand}" ToolTip="{l:L Tool.FolderTip}">
                         <StackPanel>
                             <Image Source="{a:Pixel Folder}" Width="32" Height="32" />
-                            <TextBlock Text="Pasta" HorizontalAlignment="Center" />
+                            <TextBlock Text="{l:L Tool.Folder}" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolButtonB}" Command="{Binding SettingsCommand}" ToolTip="Configurações">
+                    <Button Style="{StaticResource ToolButtonB}" Command="{Binding SettingsCommand}" ToolTip="{l:L Settings.Title}">
                         <StackPanel>
                             <Image Source="{a:Pixel Settings}" Width="32" Height="32" />
-                            <TextBlock Text="Opções" HorizontalAlignment="Center" />
+                            <TextBlock Text="{l:L Tool.Options}" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </StackPanel>
@@ -219,38 +246,41 @@
             <c:ChildWindow x:Name="TransfersPanel" Header="{Binding FilterTitle}" Margin="8,8,8,0"
                            IsActive="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource Self}}">
                 <Grid>
-                    <ListView x:Name="TorrentList" ItemsSource="{Binding TorrentsView}" SelectedItem="{Binding Selected}"
+                    <ListView x:Name="TorrentList" ItemsSource="{Binding TorrentsView}" SelectedItem="{Binding Selected}" c:GridSort.Enabled="True"
                               SelectionMode="Single" ContextMenu="{StaticResource TorrentMenu}">
+                        <ListView.InputBindings>
+                            <MouseBinding Gesture="LeftDoubleClick" Command="{Binding RedownloadCommand}" />
+                        </ListView.InputBindings>
                         <ListView.View>
                             <GridView AllowsColumnReorder="False">
-                                <GridViewColumn Header="Nome" Width="300">
+                                <GridViewColumn Header="{l:L Col.Name}" c:GridSort.Member="Name" Width="300">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate DataType="vm:TorrentItemViewModel">
                                             <StackPanel Orientation="Horizontal">
                                                 <Image Source="{Binding StatusIcon}" Width="16" Height="16" Margin="0,0,4,0" />
                                                 <Image Source="{a:Pixel Warning}" Width="16" Height="16" Margin="0,0,4,0"
-                                                       ToolTip="Contém arquivos executáveis"
+                                                       ToolTip="{l:L Main.RiskyTip}"
                                                        Visibility="{Binding HasRiskyFiles, Converter={StaticResource BoolToVis}}" />
                                                 <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                             </StackPanel>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="Tamanho" Width="78" DisplayMemberBinding="{Binding SizeText}" />
-                                <GridViewColumn Header="Progresso" Width="120">
+                                <GridViewColumn Header="{l:L Col.Size}" c:GridSort.Member="SortSize" Width="78" DisplayMemberBinding="{Binding SizeText}" />
+                                <GridViewColumn Header="{l:L Col.Progress}" c:GridSort.Member="Progress" Width="120">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate DataType="vm:TorrentItemViewModel">
                                             <ProgressBar Width="108" Maximum="100" Value="{Binding Progress, Mode=OneWay}" Tag="{Binding ProgressText}" />
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="Status" Width="116" DisplayMemberBinding="{Binding StatusText}" />
-                                <GridViewColumn Header="Down" Width="80" DisplayMemberBinding="{Binding DownText}" />
-                                <GridViewColumn Header="Up" Width="74" DisplayMemberBinding="{Binding UpText}" />
-                                <GridViewColumn Header="Tempo" Width="66" DisplayMemberBinding="{Binding EtaText}" />
-                                <GridViewColumn Header="Seeds" Width="74" DisplayMemberBinding="{Binding SeedsText}" />
-                                <GridViewColumn Header="Peers" Width="74" DisplayMemberBinding="{Binding PeersText}" />
-                                <GridViewColumn Header="Adicionado" Width="112" DisplayMemberBinding="{Binding AddedText}" />
+                                <GridViewColumn Header="{l:L Col.Status}" c:GridSort.Member="StatusText" Width="116" DisplayMemberBinding="{Binding StatusText}" />
+                                <GridViewColumn Header="{l:L Col.Down}" c:GridSort.Member="SortDown" Width="80" DisplayMemberBinding="{Binding DownText}" />
+                                <GridViewColumn Header="{l:L Col.Up}" c:GridSort.Member="SortUp" Width="74" DisplayMemberBinding="{Binding UpText}" />
+                                <GridViewColumn Header="{l:L Col.Time}" c:GridSort.Member="SortEta" Width="66" DisplayMemberBinding="{Binding EtaText}" />
+                                <GridViewColumn Header="{l:L Col.Seeds}" c:GridSort.Member="SortSeeds" Width="74" DisplayMemberBinding="{Binding SeedsText}" />
+                                <GridViewColumn Header="{l:L Col.Peers}" c:GridSort.Member="SortPeers" Width="74" DisplayMemberBinding="{Binding PeersText}" />
+                                <GridViewColumn Header="{l:L Col.Added}" c:GridSort.Member="SortAdded" Width="112" DisplayMemberBinding="{Binding AddedText}" />
                             </GridView>
                         </ListView.View>
                     </ListView>
@@ -258,8 +288,8 @@
                                 Visibility="{Binding Torrents.Count, Converter={StaticResource HideIf}, ConverterParameter=0}"
                                 x:Name="EmptyHint">
                         <Image Source="{a:Pixel Magnet}" Width="48" Height="48" Opacity="0.7" />
-                        <TextBlock Text="Nenhuma transferência." FontWeight="Bold" HorizontalAlignment="Center" Margin="0,6,0,2" />
-                        <TextBlock Text="Clique em Magnet, abra um .torrent ou arraste-o para esta janela."
+                        <TextBlock Text="{l:L Main.Empty}" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,6,0,2" />
+                        <TextBlock Text="{l:L Main.EmptyHint}"
                                    Foreground="{StaticResource Shadow}" HorizontalAlignment="Center" />
                     </StackPanel>
                 </Grid>
@@ -278,10 +308,20 @@
                 <c:ChildWindow Header="{Binding DetailsTitle}"
                                IsActive="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource Self}}">
                     <Grid>
-                        <ListView ItemsSource="{Binding Files}">
+                        <ListView ItemsSource="{Binding Files}" c:GridSort.Enabled="True">
                             <ListView.View>
                                 <GridView AllowsColumnReorder="False">
-                                    <GridViewColumn Header="Arquivo" Width="330">
+                                    <GridViewColumn Header="{l:L Col.Get}" c:GridSort.Member="IsSelected" Width="64">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate DataType="vm:FileItemViewModel">
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=OneWay}" HorizontalAlignment="Center"
+                                                          Margin="0" ToolTip="{l:L File.GetTip}"
+                                                          Command="{Binding DataContext.ToggleFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                          CommandParameter="{Binding}" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="{l:L Col.File}" c:GridSort.Member="Path" Width="290">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate DataType="vm:FileItemViewModel">
                                                 <StackPanel Orientation="Horizontal">
@@ -291,15 +331,37 @@
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
-                                    <GridViewColumn Header="Tamanho" Width="78" DisplayMemberBinding="{Binding SizeText}" />
-                                    <GridViewColumn Header="Progresso" Width="112">
+                                    <GridViewColumn Header="{l:L Col.Size}" c:GridSort.Member="SortSize" Width="78" DisplayMemberBinding="{Binding SizeText}" />
+                                    <GridViewColumn Header="{l:L Col.Progress}" c:GridSort.Member="Progress" Width="112">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate DataType="vm:FileItemViewModel">
-                                                <ProgressBar Width="100" Maximum="100" Value="{Binding Progress, Mode=OneWay}" Tag="{Binding ProgressText}" />
+                                                <ProgressBar Width="100" Maximum="100" Value="{Binding Progress, Mode=OneWay}" Tag="{Binding ProgressText}">
+                                                    <ProgressBar.Style>
+                                                        <Style TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsDeleted}" Value="True">
+                                                                    <Setter Property="Background" Value="#FFFFE1" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </ProgressBar.Style>
+                                                </ProgressBar>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
-                                    <GridViewColumn Header="Alerta" Width="100" DisplayMemberBinding="{Binding RiskText}" />
+                                    <GridViewColumn Header="{l:L Col.Alert}" c:GridSort.Member="RiskText" Width="100" DisplayMemberBinding="{Binding RiskText}" />
+                                    <GridViewColumn Header="" Width="34">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate DataType="vm:FileItemViewModel">
+                                                <Button Style="{StaticResource FileAction}" ToolTip="{l:L File.DeleteTip}" HorizontalAlignment="Center"
+                                                        Visibility="{Binding CanDelete, Converter={StaticResource BoolToVis}}"
+                                                        Command="{Binding DataContext.DeleteFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}">
+                                                    <Image Source="{a:Pixel Trash}" Width="16" Height="16" />
+                                                </Button>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
                                 </GridView>
                             </ListView.View>
                         </ListView>
@@ -308,11 +370,11 @@
 
                 <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" ResizeDirection="Columns" />
 
-                <c:ChildWindow Grid.Column="2" Header="Informações"
+                <c:ChildWindow Grid.Column="2" Header="{l:L Main.Info}"
                                IsActive="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource Self}}">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,6">
                         <Grid>
-                            <TextBlock Text="Selecione uma transferência." Foreground="{StaticResource Shadow}"
+                            <TextBlock Text="{l:L Main.SelectHint}" Foreground="{StaticResource Shadow}"
                                        Visibility="{Binding Selected, Converter={StaticResource HideIf}}" />
                             <StackPanel DataContext="{Binding Selected}" Visibility="{Binding Converter={StaticResource ShowIf}}">
                                 <Grid>
@@ -324,29 +386,29 @@
                                         <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
                                         <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
                                     </Grid.RowDefinitions>
-                                    <TextBlock Style="{StaticResource InfoKey}" Text="Status:" />
+                                    <TextBlock Style="{StaticResource InfoKey}" Text="{l:L Info.Status}" />
                                     <TextBlock Style="{StaticResource InfoValue}" Grid.Column="1" Text="{Binding StatusText}" />
-                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="1" Text="Baixado:" />
+                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="1" Text="{l:L Info.Downloaded}" />
                                     <TextBlock Style="{StaticResource InfoValue}" Grid.Row="1" Grid.Column="1" Text="{Binding DownloadedText}" />
-                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="2" Text="Progresso:" />
+                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="2" Text="{l:L Info.Progress}" />
                                     <ProgressBar Grid.Row="2" Grid.Column="1" Maximum="100" Margin="0,2"
                                                  Value="{Binding Progress, Mode=OneWay}" Tag="{Binding ProgressText}" />
-                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="3" Text="Velocidade:" />
+                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="3" Text="{l:L Info.Speed}" />
                                     <TextBlock Style="{StaticResource InfoValue}" Grid.Row="3" Grid.Column="1">
                                         <Run Text="↓" /><Run Text="{Binding DownText, Mode=OneWay}" />
                                         <Run Text="  ↑" /><Run Text="{Binding UpText, Mode=OneWay}" />
                                     </TextBlock>
-                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="4" Text="Tempo restante:" />
+                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="4" Text="{l:L Info.Eta}" />
                                     <TextBlock Style="{StaticResource InfoValue}" Grid.Row="4" Grid.Column="1" Text="{Binding EtaText}" />
-                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="5" Text="Seeds:" />
+                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="5" Text="{l:L Info.Seeds}" />
                                     <TextBlock Style="{StaticResource InfoValue}" Grid.Row="5" Grid.Column="1"
-                                               ToolTip="Conectados a você (total na rede, pelo tracker)">
-                                        <Run Text="{Binding SeedsText, Mode=OneWay}" /><Run Text="   Peers: " FontWeight="Bold" /><Run Text="{Binding PeersText, Mode=OneWay}" />
+                                               ToolTip="{l:L Info.SeedsTip}">
+                                        <Run Text="{Binding SeedsText, Mode=OneWay}" /><Run Text="{l:L Info.Peers}" FontWeight="Bold" /><Run Text="{Binding PeersText, Mode=OneWay}" />
                                     </TextBlock>
-                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="6" Text="Pasta:" />
+                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="6" Text="{l:L Info.Folder}" />
                                     <TextBlock Style="{StaticResource InfoValue}" Grid.Row="6" Grid.Column="1" Text="{Binding SavePath}"
                                                ToolTip="{Binding SavePath}" />
-                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="7" Text="Adicionado:" />
+                                    <TextBlock Style="{StaticResource InfoKey}" Grid.Row="7" Text="{l:L Info.Added}" />
                                     <TextBlock Style="{StaticResource InfoValue}" Grid.Row="7" Grid.Column="1" Text="{Binding AddedText}" />
                                 </Grid>
                                 <Border Margin="0,8,0,0" BorderBrush="{StaticResource Alert}" BorderThickness="1" Padding="4"
@@ -354,9 +416,12 @@
                                     <DockPanel>
                                         <Image Source="{a:Pixel Warning}" Width="16" Height="16" VerticalAlignment="Top" Margin="0,0,4,0" />
                                         <TextBlock TextWrapping="Wrap" FontSize="11"
-                                                   Text="Contém executáveis. O Itorrent nunca os abre; os arquivos recebem a marca 'baixado da internet' (SmartScreen)." />
+                                                   Text="{l:L Info.Risky}" />
                                     </DockPanel>
                                 </Border>
+                                <Button Margin="0,10,0,0" HorizontalAlignment="Left" Padding="8,2"
+                                        Content="{l:L Menu.Redownload}"
+                                        Command="{Binding DataContext.RedownloadCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
                                 <TextBlock Margin="0,6,0,0" Foreground="{StaticResource Alert}" TextWrapping="Wrap"
                                            Text="{Binding ErrorMessage}" Visibility="{Binding ErrorMessage, Converter={StaticResource ShowIf}}" />
                             </StackPanel>
@@ -367,13 +432,13 @@
 
             <!-- Grupos minimizados = filtros -->
             <WrapPanel Grid.Row="3" Margin="4,6,4,4">
-                <RadioButton Style="{StaticResource GroupIcon}" Content="Todos"
+                <RadioButton Style="{StaticResource GroupIcon}" Content="{l:L Group.All}"
                              IsChecked="{Binding Filter, Converter={StaticResource EnumEquals}, ConverterParameter=All}" />
-                <RadioButton Style="{StaticResource GroupIcon}" Content="Baixando"
+                <RadioButton Style="{StaticResource GroupIcon}" Content="{l:L Group.Downloading}"
                              IsChecked="{Binding Filter, Converter={StaticResource EnumEquals}, ConverterParameter=Downloading}" />
-                <RadioButton Style="{StaticResource GroupIcon}" Content="Concluídos"
+                <RadioButton Style="{StaticResource GroupIcon}" Content="{l:L Group.Completed}"
                              IsChecked="{Binding Filter, Converter={StaticResource EnumEquals}, ConverterParameter=Completed}" />
-                <RadioButton Style="{StaticResource GroupIcon}" Content="Pausados"
+                <RadioButton Style="{StaticResource GroupIcon}" Content="{l:L Group.Paused}"
                              IsChecked="{Binding Filter, Converter={StaticResource EnumEquals}, ConverterParameter=Paused}" />
             </WrapPanel>
         </Grid>

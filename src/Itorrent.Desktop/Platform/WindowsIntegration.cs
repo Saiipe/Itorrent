@@ -30,6 +30,25 @@ public static class StartupRegistry
 }
 
 /// <summary>
+/// Idioma escolhido no instalador. O instalador grava HKCU\Software\Itorrent\Language;
+/// o app aplica na primeira abertura e apaga o valor (a partir daí vale o das Configurações).
+/// </summary>
+public static class InstallerLanguage
+{
+    private const string Key = @"Software\Itorrent";
+    private const string ValueName = "Language";
+
+    public static string? Consume()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(Key, writable: true);
+        if (key?.GetValue(ValueName) is not string lang)
+            return null;
+        key.DeleteValue(ValueName, throwOnMissingValue: false);
+        return lang;
+    }
+}
+
+/// <summary>
 /// Registra magnet: e .torrent em HKCU\Software\Classes (sem administrador).
 /// O instalador faz o mesmo; isto permite associar também pela tela de opções.
 /// </summary>

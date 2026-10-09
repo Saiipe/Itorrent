@@ -1,10 +1,10 @@
+using Itorrent.Core.Localization;
 using System.Globalization;
 
 namespace Itorrent.Core.Stats;
 
 public static class Format
 {
-    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
     private static readonly string[] Units = ["B", "KB", "MB", "GB", "TB"];
 
     public static string Bytes(long bytes)
@@ -19,8 +19,8 @@ public static class Format
             u++;
         }
         return u == 0
-            ? string.Create(PtBr, $"{bytes} B")
-            : string.Create(PtBr, $"{v:0.##} {Units[u]}");
+            ? string.Create(Strings.Culture, $"{bytes} B")
+            : string.Create(Strings.Culture, $"{v:0.##} {Units[u]}");
     }
 
     public static string Rate(long bytesPerSecond) =>
@@ -31,13 +31,13 @@ public static class Format
         if (eta is not { } t || t.TotalDays > 365)
             return "∞";
         if (t.TotalDays >= 1)
-            return string.Create(PtBr, $"{(int)t.TotalDays}d {t.Hours}h");
+            return string.Create(Strings.Culture, $"{(int)t.TotalDays}d {t.Hours}h");
         if (t.TotalHours >= 1)
-            return string.Create(PtBr, $"{(int)t.TotalHours}h {t.Minutes:00}m");
-        return string.Create(PtBr, $"{t.Minutes}m {t.Seconds:00}s");
+            return string.Create(Strings.Culture, $"{(int)t.TotalHours}h {t.Minutes:00}m");
+        return string.Create(Strings.Culture, $"{t.Minutes}m {t.Seconds:00}s");
     }
 
     /// <summary>Formato do qBittorrent: conectados (total na rede).</summary>
     public static string Peers(int connected, int total) =>
-        total >= 0 ? string.Create(PtBr, $"{connected} ({total})") : string.Create(PtBr, $"{connected} (?)");
+        total >= 0 ? string.Create(Strings.Culture, $"{connected} ({total})") : string.Create(Strings.Culture, $"{connected} (?)");
 }

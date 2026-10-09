@@ -1,3 +1,4 @@
+using Itorrent.Core.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Itorrent.Core.Security;
@@ -39,6 +40,7 @@ public sealed class SettingsViewModel : ObservableObject
         NotifyOnComplete = s.NotifyOnComplete;
         MinimizeToTrayOnClose = s.MinimizeToTrayOnClose;
         AutoExitIdleMinutes = s.AutoExitIdleMinutes;
+        Language = Strings.Normalize(s.Language) is { Length: > 0 } lang ? lang : Strings.Language;
         _associationText = AssociationStatus();
 
         BrowseCommand = new RelayCommand(() =>
@@ -55,7 +57,7 @@ public sealed class SettingsViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                Error = "Não foi possível associar: " + ex.Message;
+                Error = Strings.T("Settings.AssociateFailed", ex.Message);
             }
         });
     }
@@ -87,6 +89,9 @@ public sealed class SettingsViewModel : ObservableObject
     public bool MinimizeToTrayOnClose { get; set; }
     public int AutoExitIdleMinutes { get; set; }
 
+    /// <summary>"pt-BR" ou "en".</summary>
+    public string Language { get; set; }
+
     public string AssociationText
     {
         get => _associationText;
@@ -101,22 +106,22 @@ public sealed class SettingsViewModel : ObservableObject
 
     private static string AssociationStatus() =>
         ProtocolRegistration.IsRegistered()
-            ? "Links magnet e arquivos .torrent abrem no Itorrent."
-            : "Links magnet ainda não abrem no Itorrent.";
+            ? Strings.T("Settings.Associated")
+            : Strings.T("Settings.NotAssociated");
 
     /// <returns>true se as configurações foram salvas.</returns>
     public bool TrySave()
     {
         if (!PathGuard.IsValidSaveDirectory(DefaultSavePath))
-            return Fail("Pasta padrão inválida. Use um caminho completo, ex.: C:\\Downloads");
+            return Fail(Strings.T("Settings.ErrFolder"));
         if (!TryInt(ListenPort, 1024, 65535, out var port))
-            return Fail("Porta deve estar entre 1024 e 65535.");
+            return Fail(Strings.T("Settings.ErrPort"));
         if (!TryInt(MaxConnectionsPerTorrent, 10, 1000, out var conns))
-            return Fail("Conexões por torrent: entre 10 e 1000.");
+            return Fail(Strings.T("Settings.ErrConns"));
         if (!TryInt(TurboConnectionsPerTorrent, 200, 500, out var turboConns))
-            return Fail("Conexões no Modo Turbo: entre 200 e 500.");
+            return Fail(Strings.T("Settings.ErrTurboConns"));
         if (!TryInt(MaxDownloadKBps, 0, 10_000_000, out var down) || !TryInt(MaxUploadKBps, 0, 10_000_000, out var up))
-            return Fail("Limites de velocidade devem ser números (0 = sem limite).");
+            return Fail(Strings.T("Settings.ErrSpeed"));
 
         _settings.Save(_settings.Current with
         {
@@ -138,7 +143,9 @@ public sealed class SettingsViewModel : ObservableObject
             NotifyOnComplete = NotifyOnComplete,
             MinimizeToTrayOnClose = MinimizeToTrayOnClose,
             AutoExitIdleMinutes = AutoExitIdleMinutes,
+            Language = Language,
         });
+        Strings.SetLanguage(Language);
         return true;
     }
 

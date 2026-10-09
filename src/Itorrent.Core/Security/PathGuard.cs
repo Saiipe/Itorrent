@@ -1,3 +1,4 @@
+using Itorrent.Core.Localization;
 using System.Security;
 
 namespace Itorrent.Core.Security;
@@ -23,28 +24,28 @@ public static class PathGuard
         ArgumentNullException.ThrowIfNull(relative);
 
         if (relative.Length == 0 || Path.IsPathRooted(relative) || relative.Contains(':', StringComparison.Ordinal))
-            throw new SecurityException("Caminho absoluto ou com ':' não é permitido");
+            throw new SecurityException(Strings.T("Path.Absolute"));
 
         foreach (var segment in relative.Split('/', '\\'))
         {
             if (segment.Length == 0)
                 continue;
             if (segment is "." or "..")
-                throw new SecurityException("Caminho com '..' não é permitido");
+                throw new SecurityException(Strings.T("Path.DotDot"));
             var stem = segment.Split('.')[0].TrimEnd(' ');
             if (ReservedNames.Contains(stem))
-                throw new SecurityException($"Nome reservado do Windows: {segment}");
+                throw new SecurityException(Strings.T("Path.Reserved", segment));
             if (segment.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || segment.Any(char.IsControl))
-                throw new SecurityException("Nome de arquivo com caracteres inválidos");
+                throw new SecurityException(Strings.T("Path.InvalidChars"));
         }
 
         var baseDir = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                       + Path.DirectorySeparatorChar;
         var full = Path.GetFullPath(Path.Combine(baseDir, relative));
         if (!full.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase))
-            throw new SecurityException("Caminho fora da pasta de download");
+            throw new SecurityException(Strings.T("Path.Outside"));
         if (full.Length > MaxPathLength)
-            throw new SecurityException("Caminho acima do limite de tamanho");
+            throw new SecurityException(Strings.T("Path.TooLong"));
         return full;
     }
 
