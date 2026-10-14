@@ -22,6 +22,7 @@ public sealed partial class TorrentService : ITorrentService
     private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
     private readonly Lock _gate = new();
     private ClientEngine? _engine;
+    private PartsStore? _parts;
 
     public TorrentService(ISettingsService settings, TorrentRepository repository, string dataDirectory)
     {
@@ -43,7 +44,9 @@ public sealed partial class TorrentService : ITorrentService
     public async Task StartAsync()
     {
         Directory.CreateDirectory(_cacheDirectory);
-        _engine = new ClientEngine(EngineFactory.CreateEngineSettings(_settings.Current, _cacheDirectory));
+        var parts = _parts = new PartsStore(Path.Combine(_cacheDirectory, "parts"));
+        _engine = new ClientEngine(EngineFactory.CreateEngineSettings(_settings.Current, _cacheDirectory),
+            Factories.Default.WithPieceWriterCreator(max => new PartsPieceWriter(new MonoTorrent.PieceWriter.DiskWriter(max), parts)));
         _engine.CriticalException += (_, e) => _log.Error(e.Exception, "Erro crítico no motor");
 
         foreach (var record in _repository.GetAll())
@@ -90,11 +93,38 @@ public sealed partial class TorrentService : ITorrentService
             : []).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var lookup = new MagnetLink(magnet.InfoHashes, magnet.Name, forMetadata, magnet.Webseeds, magnet.Size);
 
+        await RemoveStaleLookupAsync(magnet.InfoHashes);
         var metadata = await Engine.DownloadMetadataAsync(lookup, cancellationToken);
         if (!LinkValidator.TryLoadTorrent(metadata.Span, out var torrent))
             throw new TorrentInputException(Strings.T("Err.BadMetadata"));
 
         return new TorrentPreview(torrent, metadata.ToArray(), trackers);
+    }
+
+    /// <summary>
+    /// Uma busca de metadados cancelada às vezes fica registrada no motor; a próxima busca do mesmo
+    /// magnet falharia na hora ("already been registered"). Para e tira a que sobrou.
+    /// </summary>
+    private async Task RemoveStaleLookupAsync(InfoHashes hashes)
+    {
+        var engine = Engine;
+        if (!engine.Contains(hashes))
+            return;
+        var field = typeof(ClientEngine).GetField("allTorrents",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        if (field?.GetValue(engine) is not IEnumerable<TorrentManager> all
+            || all.ToList().FirstOrDefault(m => m.InfoHashes == hashes) is not { } stale)
+            return;
+        _log.Warning("Busca de metadados anterior ainda registrada no motor; removendo");
+        try
+        {
+            await StopAndWaitAsync(stale);
+            await engine.RemoveAsync(stale, RemoveMode.CacheDataOnly);
+        }
+        catch (Exception ex)
+        {
+            _log.Warning(ex, "Não foi possível remover a busca anterior");
+        }
     }
 
     public TorrentPreview PrepareTorrentFile(string path)
@@ -367,7 +397,7 @@ public sealed partial class TorrentService : ITorrentService
             throw new TorrentInputException(Strings.T("Err.SelectOne"));
 
         // Algum arquivo marcado foi apagado do disco? Aí precisa conferir tudo de novo.
-        if (selection.Any(i => files[i].BitField.TrueCount > 0 && !File.Exists(files[i].FullPath)))
+        if (selection.Any(i => files[i].BitField.TrueCount > 0 && !File.Exists(files[i].FullPath) && _parts?.IsParked(files[i]) != true))
         {
             await RedownloadAsync(id, selection);
             return;
@@ -441,6 +471,7 @@ public sealed partial class TorrentService : ITorrentService
         await StopAndWaitAsync(entry.Manager);
         await Engine.RemoveAsync(entry.Manager,
             deleteFiles ? RemoveMode.CacheDataAndDownloadedData : RemoveMode.CacheDataOnly);
+        _parts?.Delete(entry.Manager.Files);
         _repository.Delete(id);
         _log.Information("Torrent removido {Id} (apagar arquivos: {Delete})", id, deleteFiles);
     }
@@ -578,8 +609,9 @@ public sealed partial class TorrentService : ITorrentService
         {
             var selected = !entry.Record.SkippedFiles.Contains(i);
             var exists = File.Exists(f.FullPath);
-            var deleted = IsDeleted(f, exists);
-            var progress = deleted ? 0 : completed && selected ? 100.0 : f.BitField.PercentComplete;
+            var deleted = IsDeleted(f, exists) && _parts?.IsParked(f) != true;
+            // Desmarcado e fora da pasta: o que houver é só sobra de peça na fronteira (fica no cache).
+            var progress = deleted || (!selected && !exists) ? 0 : completed && selected ? 100.0 : f.BitField.PercentComplete;
             return new FileSnapshot(i, f.Path, f.Length, progress, selected, FileRiskChecker.GetRisk(f.Path), exists, deleted);
         }).ToList();
     }
