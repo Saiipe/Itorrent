@@ -71,6 +71,7 @@
             <MenuItem Header="{l:L Menu.Pause}" Command="{Binding PauseCommand}" />
             <MenuItem Header="{l:L Menu.Resume}" Command="{Binding ResumeCommand}" />
             <MenuItem Header="{l:L Menu.Redownload}" Command="{Binding RedownloadCommand}" />
+            <MenuItem Header="{l:L Menu.Reannounce}" Command="{Binding ReannounceCommand}" />
             <Separator />
             <MenuItem Header="{l:L Menu.OpenFolder}" Command="{Binding OpenFolderCommand}" />
             <Separator />

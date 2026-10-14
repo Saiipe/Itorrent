@@ -11,8 +11,6 @@ public sealed record AppSettings
     /// <summary>Porta do BitTorrent (TCP e UDP). Única porta que o app escuta.</summary>
     public int ListenPort { get; init; } = Random.Shared.Next(49152, 65535);
 
-    public bool StopSeedingOnComplete { get; init; } = true;
-
     public bool TurboMode { get; init; }
 
     public bool AllowPortForwarding { get; init; } = true;

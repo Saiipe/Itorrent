@@ -10,10 +10,10 @@ public interface ITorrentControl
 }
 
 /// <summary>
-/// Regras automáticas: parar de semear ao concluir, mantendo os arquivos no disco.
+/// Regras automáticas: nunca semeia; ao concluir o torrent para, mantendo os arquivos no disco.
 /// O upload continua ligado durante o download (tit-for-tat); só para depois de concluir.
 /// </summary>
-public sealed class PolicyEngine(Func<bool> stopSeedingOnComplete)
+public sealed class PolicyEngine
 {
     public static bool IsCompletion(TorrentState oldState, TorrentState newState) =>
         newState == TorrentState.Seeding && oldState != TorrentState.Seeding;
@@ -35,13 +35,10 @@ public sealed class PolicyEngine(Func<bool> stopSeedingOnComplete)
     public static bool ShouldAutoExit(DateTimeOffset idleSince, DateTimeOffset now, int idleMinutes) =>
         idleMinutes > 0 && now - idleSince >= TimeSpan.FromMinutes(idleMinutes);
 
-    /// <returns>true se o torrent foi parado pela política.</returns>
-    public async Task<bool> OnCompletedAsync(ITorrentControl torrent)
+    /// <summary>Concluiu: para o torrent (não fica semeando).</summary>
+    public static async Task OnCompletedAsync(ITorrentControl torrent)
     {
         ArgumentNullException.ThrowIfNull(torrent);
-        if (!stopSeedingOnComplete())
-            return false;
         await torrent.StopAsync();
-        return true;
     }
 }

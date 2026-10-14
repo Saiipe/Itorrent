@@ -78,6 +78,8 @@ public sealed class MainViewModel : ObservableObject
         RedownloadCommand = new RelayCommand(Redownload,
             () => Selected is { Status: not (TorrentStatus.FetchingMetadata or TorrentStatus.Stopping) });
         OpenFolderCommand = new RelayCommand(OpenFolder, () => Selected is not null);
+        ReannounceCommand = new AsyncRelayCommand(() => Run(s => _service.ReannounceAsync(s.Id)),
+            () => Selected?.CanReannounce == true);
         PauseAllCommand = new AsyncRelayCommand(() => _service.PauseAllAsync());
         ResumeAllCommand = new AsyncRelayCommand(() => _service.ResumeAllAsync());
         SettingsCommand = new AsyncRelayCommand(OpenSettingsAsync);
@@ -118,6 +120,7 @@ public sealed class MainViewModel : ObservableObject
     public AsyncRelayCommand<FileItemViewModel> ToggleFileCommand { get; }
     public AsyncRelayCommand<FileItemViewModel> DeleteFileCommand { get; }
     public RelayCommand OpenFolderCommand { get; }
+    public AsyncRelayCommand ReannounceCommand { get; }
     public AsyncRelayCommand PauseAllCommand { get; }
     public AsyncRelayCommand ResumeAllCommand { get; }
     public AsyncRelayCommand SettingsCommand { get; }
@@ -294,6 +297,7 @@ public sealed class MainViewModel : ObservableObject
         RemoveCommand.NotifyCanExecuteChanged();
         RedownloadCommand.NotifyCanExecuteChanged();
         OpenFolderCommand.NotifyCanExecuteChanged();
+        ReannounceCommand.NotifyCanExecuteChanged();
     }
 
     private static bool Matches(TorrentItemViewModel t, TorrentFilter f) => f switch

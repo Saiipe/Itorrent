@@ -17,7 +17,6 @@ public sealed partial class TorrentService : ITorrentService
     private readonly ISettingsService _settings;
     private readonly TorrentRepository _repository;
     private readonly string _cacheDirectory;
-    private readonly PolicyEngine _policy;
     private readonly ILogger _log = Log.ForContext<TorrentService>();
     private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
     private readonly Lock _gate = new();
@@ -29,7 +28,6 @@ public sealed partial class TorrentService : ITorrentService
         _settings = settings;
         _repository = repository;
         _cacheDirectory = Path.Combine(dataDirectory, "cache");
-        _policy = new PolicyEngine(() => _settings.Current.StopSeedingOnComplete);
     }
 
     public event EventHandler<TorrentCompletedEventArgs>? TorrentCompleted;
@@ -67,6 +65,13 @@ public sealed partial class TorrentService : ITorrentService
     {
         if (!LinkValidator.TryLoadTorrent(record.Metadata, out var torrent))
             throw new TorrentInputException("Metadados salvos corrompidos");
+
+        // Versões antigas podiam deixar o torrent concluído semeando (ativo): agora fica só concluído.
+        if (record.Status == StoredStatus.Active && record.CompletedAt is not null)
+        {
+            record = record with { Status = StoredStatus.Completed };
+            _repository.SetStatus(record.Id, StoredStatus.Completed);
+        }
 
         var manager = await AddToEngineAsync(torrent, record.SavePath, record.SkippedFiles, record.ExtraTrackers);
         var entry = Track(manager, record);
@@ -288,9 +293,7 @@ public sealed partial class TorrentService : ITorrentService
         try
         {
             // Primeiro marca e avisa; parar pode demorar (anúncio "stopped" aos trackers).
-            var status = _settings.Current.StopSeedingOnComplete ? StoredStatus.Completed : StoredStatus.Active;
-            entry.Record = entry.Record with { Status = status, CompletedAt = DateTimeOffset.Now };
-            _repository.SetStatus(entry.Record.Id, status, entry.Record.CompletedAt);
+            MarkCompleted(entry);
 
             foreach (var (file, index) in entry.Manager.Files.Select((f, i) => (f, i)))
             {
@@ -300,12 +303,40 @@ public sealed partial class TorrentService : ITorrentService
 
             _log.Information("Torrent concluído {Id}", entry.Record.Id);
             TorrentCompleted?.Invoke(this, new TorrentCompletedEventArgs(entry.Record.Id, entry.Record.Name, entry.Record.SavePath));
-
-            await _policy.OnCompletedAsync(new ManagerControl(entry.Manager));
         }
         catch (Exception ex)
         {
             _log.Error(ex, "Falha ao finalizar torrent {Id}", entry.Record.Id);
+        }
+        await StopSeedingAsync(entry);
+    }
+
+    private void MarkCompleted(Entry entry)
+    {
+        entry.Record = entry.Record with { Status = StoredStatus.Completed, CompletedAt = entry.Record.CompletedAt ?? DateTimeOffset.Now };
+        _repository.SetStatus(entry.Record.Id, StoredStatus.Completed, entry.Record.CompletedAt);
+    }
+
+    /// <summary>Concluído não semeia: para o torrent (uma parada por vez).</summary>
+    private async Task StopSeedingAsync(Entry entry)
+    {
+        lock (entry)
+        {
+            if (entry.StoppingSeed)
+                return;
+            entry.StoppingSeed = true;
+        }
+        try
+        {
+            await PolicyEngine.OnCompletedAsync(new ManagerControl(entry.Manager));
+        }
+        catch (Exception ex)
+        {
+            _log.Warning(ex, "Falha ao parar torrent concluído {Id}", entry.Record.Id);
+        }
+        finally
+        {
+            entry.StoppingSeed = false;
         }
     }
 
@@ -528,6 +559,20 @@ public sealed partial class TorrentService : ITorrentService
 
         if (!e.CompletionHandled && PolicyEngine.IsPartialCompletion(m.State, m.PartialProgress))
             _ = HandleCompletionAsync(e);
+
+        // Rede de segurança: nada fica semeando (evento perdido, parada que falhou...).
+        if (m.State == TorrentState.Seeding)
+        {
+            if (!e.CompletionHandled)
+                _ = HandleCompletionAsync(e);
+            else if (!e.StoppingSeed)
+            {
+                if (e.Record.Status == StoredStatus.Active)
+                    MarkCompleted(e);
+                _ = StopSeedingAsync(e);
+            }
+        }
+        r = e.Record;
 
         if (m.State is TorrentState.Downloading or TorrentState.Seeding && now - e.LastScrape > ScrapeInterval)
         {
@@ -767,12 +812,13 @@ public sealed partial class TorrentService : ITorrentService
         public TorrentManager Manager { get; } = manager;
         public TorrentRecord Record { get; set; } = record;
         public bool CompletionHandled { get; set; }
+        public bool StoppingSeed { get; set; }
         public DateTime LastScrape { get; set; } = DateTime.MinValue;
         public DateTime LastDeletedCheck { get; set; } = DateTime.MinValue;
     }
 
     private sealed class ManagerControl(TorrentManager manager) : ITorrentControl
     {
-        public Task StopAsync() => manager.StopAsync(TimeSpan.FromSeconds(10));
+        public Task StopAsync() => StopAndWaitAsync(manager);
     }
 }

@@ -46,6 +46,10 @@ public sealed class TorrentItemViewModel(string id) : ObservableObject
         or TorrentStatus.FetchingMetadata or TorrentStatus.Checking or TorrentStatus.Seeding;
     public bool CanResume => Status is TorrentStatus.Paused or TorrentStatus.Error;
 
+    /// <summary>Ainda baixando (ou procurando peers): dá para procurar peers de novo.</summary>
+    public bool CanReannounce => Status is TorrentStatus.Downloading or TorrentStatus.Stalled
+        or TorrentStatus.Starting or TorrentStatus.FetchingMetadata or TorrentStatus.Error;
+
     public void Refresh() => OnPropertyChanged(string.Empty);
 
     public void Update(TorrentSnapshot s)

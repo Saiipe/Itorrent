@@ -44,6 +44,12 @@ public interface ITorrentService : IAsyncDisposable
     /// </summary>
     Task DeleteFileAsync(string id, int fileIndex);
 
+    /// <summary>
+    /// Procura peers de novo para um torrent: anuncia outra vez aos trackers, DHT e rede local
+    /// (retoma se tinha dado erro). Pode ser pedido quantas vezes quiser.
+    /// </summary>
+    Task ReannounceAsync(string id);
+
     Task PauseAsync(string id);
     Task ResumeAsync(string id);
     Task RemoveAsync(string id, bool deleteFiles);

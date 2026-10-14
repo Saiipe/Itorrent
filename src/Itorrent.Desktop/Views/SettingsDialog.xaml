@@ -35,8 +35,6 @@
                             <Button DockPanel.Dock="Right" Content="..." Command="{Binding BrowseCommand}" Padding="6,1" Margin="4,0,0,0" />
                             <TextBox Text="{Binding DefaultSavePath, UpdateSourceTrigger=PropertyChanged}" />
                         </DockPanel>
-                        <CheckBox Content="{l:L Settings.StopSeeding}" IsChecked="{Binding StopSeedingOnComplete}"
-                                  ToolTip="{l:L Settings.StopSeedingTip}" />
                         <CheckBox Content="{l:L Settings.Notify}" IsChecked="{Binding NotifyOnComplete}" />
                         <CheckBox Content="{l:L Settings.PreventSleep}" IsChecked="{Binding PreventSleepWhileDownloading}" />
                     </StackPanel>

@@ -25,16 +25,8 @@ public class PolicyEngineTests
     {
         var t = new FakeTorrent();
         Assert.True(PolicyEngine.IsCompletion(TorrentState.Downloading, TorrentState.Seeding));
-        Assert.True(await new PolicyEngine(() => true).OnCompletedAsync(t));
+        await PolicyEngine.OnCompletedAsync(t);
         Assert.Equal(1, t.Stops);
-    }
-
-    [Fact]
-    public async Task With_option_disabled_torrent_keeps_seeding()
-    {
-        var t = new FakeTorrent();
-        Assert.False(await new PolicyEngine(() => false).OnCompletedAsync(t));
-        Assert.Equal(0, t.Stops);
     }
 
     [Theory]

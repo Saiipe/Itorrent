@@ -220,6 +220,21 @@ public sealed partial class TorrentService
         }
     }
 
+    public async Task ReannounceAsync(string id)
+    {
+        if (Find(id) is not { } entry || entry.Record.Status != StoredStatus.Active)
+            return;
+        var manager = entry.Manager;
+        _log.Information("Procurando peers de novo para {Id}", id);
+        if (manager.State is TorrentState.Error or TorrentState.Stopped)
+        {
+            await manager.StartAsync();
+            return;
+        }
+        using var timeout = new CancellationTokenSource(AnnounceTimeout);
+        await AnnounceEverywhereAsync(manager, timeout.Token);
+    }
+
     private async Task AnnounceEverywhereAsync(TorrentManager manager, CancellationToken cancellationToken)
     {
         try

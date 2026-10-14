@@ -207,7 +207,10 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
 
     public void Activate() => ActivateRequested?.Invoke(this, EventArgs.Empty);
 
-    /// <summary>Cancela a busca atual (espera ela soltar o torrent no motor) e procura de novo.</summary>
+    /// <summary>
+    /// Cancela a busca atual (espera ela soltar o torrent no motor) e procura de novo.
+    /// Não espera a nova busca: o botão volta a ficar disponível na hora, para clicar quantas vezes quiser.
+    /// </summary>
     private async Task RetryAsync()
     {
         if (_magnet is null)
@@ -229,7 +232,6 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
         if (_cts.IsCancellationRequested || _preview is not null)
             return;
         _loadTask = FetchAsync();
-        await _loadTask;
     }
 
     private async Task FetchAsync()

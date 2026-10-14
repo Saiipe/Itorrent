@@ -24,7 +24,6 @@ public sealed class SettingsViewModel : ObservableObject
         var s = settings.Current;
         _defaultSavePath = s.DefaultSavePath;
         ListenPort = s.ListenPort.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        StopSeedingOnComplete = s.StopSeedingOnComplete;
         TurboMode = s.TurboMode;
         AllowPortForwarding = s.AllowPortForwarding;
         AllowDht = s.AllowDht;
@@ -72,7 +71,6 @@ public sealed class SettingsViewModel : ObservableObject
     }
 
     public string ListenPort { get; set; }
-    public bool StopSeedingOnComplete { get; set; }
     public bool TurboMode { get; set; }
     public bool AllowPortForwarding { get; set; }
     public bool AllowDht { get; set; }
@@ -127,7 +125,6 @@ public sealed class SettingsViewModel : ObservableObject
         {
             DefaultSavePath = DefaultSavePath.Trim(),
             ListenPort = port,
-            StopSeedingOnComplete = StopSeedingOnComplete,
             TurboMode = TurboMode,
             AllowPortForwarding = AllowPortForwarding,
             AllowDht = AllowDht,
