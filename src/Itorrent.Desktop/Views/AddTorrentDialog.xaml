@@ -111,6 +111,8 @@
                     <TextBlock Text="{l:L Add.SlowHint}" Foreground="{StaticResource Alert}" FontWeight="Bold" TextWrapping="Wrap"
                                TextAlignment="Center" Margin="0,8,0,0"
                                Visibility="{Binding IsSlow, Converter={StaticResource BoolToVis}}" />
+                    <Button Content="{l:L Add.Retry}" Command="{Binding RetryCommand}" HorizontalAlignment="Center"
+                            MinWidth="140" Padding="8,2" Margin="0,12,0,0" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -141,7 +143,7 @@
         <!-- Botões -->
         <DockPanel Grid.Row="7" Margin="0,10,0,0">
             <Button DockPanel.Dock="Left" Content="{l:L Add.Retry}" Command="{Binding RetryCommand}" MinWidth="120" Padding="8,0"
-                    Visibility="{Binding CanRetry, Converter={StaticResource BoolToVis}}" />
+                    Visibility="{Binding ShowRetryFooter, Converter={StaticResource BoolToVis}}" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="{l:L Add.Download}" IsDefault="True" Command="{Binding ConfirmCommand}" Width="96" Margin="0,0,8,0" />
                 <Button Content="{l:L Common.Cancel}" IsCancel="True" Width="96" Click="Cancel_Click" />

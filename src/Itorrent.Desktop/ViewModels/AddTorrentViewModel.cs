@@ -72,6 +72,9 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
     /// <summary>Magnet ainda sem lista de arquivos (procurando ou falhou): dá para tentar de novo.</summary>
     public bool CanRetry => _magnet is not null && _preview is null && !IsBusy;
 
+    /// <summary>Enquanto procura, o botão fica no meio da janela; depois de falhar, vai para o rodapé.</summary>
+    public bool ShowRetryFooter => CanRetry && !IsLoading;
+
     public string ElapsedText
     {
         get
@@ -100,6 +103,7 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
             OnPropertyChanged(nameof(IsReady));
             OnPropertyChanged(nameof(IsSlow));
             OnPropertyChanged(nameof(CanRetry));
+            OnPropertyChanged(nameof(ShowRetryFooter));
             RetryCommand.NotifyCanExecuteChanged();
         }
     }
@@ -357,6 +361,7 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
     private void RefreshCommands()
     {
         OnPropertyChanged(nameof(CanRetry));
+        OnPropertyChanged(nameof(ShowRetryFooter));
         RetryCommand.NotifyCanExecuteChanged();
         BrowseCommand.NotifyCanExecuteChanged();
         SelectAllCommand.NotifyCanExecuteChanged();

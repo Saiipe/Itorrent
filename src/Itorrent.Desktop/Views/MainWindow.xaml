@@ -274,7 +274,7 @@
             <c:ChildWindow x:Name="TransfersPanel" Header="{Binding FilterTitle}" Margin="8,8,8,0"
                            IsActive="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource Self}}">
                 <Grid>
-                    <ListView x:Name="TorrentList" ItemsSource="{Binding TorrentsView}" SelectedItem="{Binding Selected}" c:GridSort.Enabled="True"
+                    <ListView x:Name="TorrentList" ItemsSource="{Binding TorrentsView}" SelectedItem="{Binding Selected}" c:GridSort.Enabled="True" c:GridScroll.Enabled="True"
                               SelectionMode="Single" ContextMenu="{StaticResource TorrentMenu}">
                         <ListView.InputBindings>
                             <MouseBinding Gesture="LeftDoubleClick" Command="{Binding RedownloadCommand}" />
@@ -378,7 +378,7 @@
                 <c:ChildWindow Header="{Binding DetailsTitle}"
                                IsActive="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource Self}}">
                     <Grid>
-                        <ListView ItemsSource="{Binding Files}" c:GridSort.Enabled="True">
+                        <ListView ItemsSource="{Binding Files}" c:GridSort.Enabled="True" c:GridScroll.Enabled="True">
                             <ListView.View>
                                 <GridView AllowsColumnReorder="False">
                                     <GridViewColumn Header="{l:L Col.Get}" c:GridSort.Member="IsSelected" Width="64">
