@@ -56,4 +56,13 @@ public sealed record GlobalStats(
     int TotalTorrents,
     bool TurboMode,
     int ListenPort,
-    string DhtStatus);
+    string DhtStatus,
+    ConnectionStatus Connection = ConnectionStatus.Online);
+
+/// <summary>Estado da conexão de rede, acompanhado pelo vigia do motor.</summary>
+public enum ConnectionStatus
+{
+    Online,
+    Offline,
+    Reconnecting,
+}

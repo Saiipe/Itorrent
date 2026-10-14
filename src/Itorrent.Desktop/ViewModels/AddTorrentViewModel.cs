@@ -2,6 +2,7 @@ using Itorrent.Core.Localization;
 using System.Collections.ObjectModel;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Input;
 using Itorrent.Core.Engine;
 using Itorrent.Core.Security;
@@ -12,7 +13,9 @@ namespace Itorrent.Desktop.ViewModels;
 
 /// <summary>
 /// Confirmação antes de baixar: nome, tamanho, arquivos (desmarcáveis) e pasta de destino.
-/// Para magnet, mostra "obtendo lista de arquivos" enquanto os metadados chegam dos peers.
+/// Para magnet, mostra "obtendo lista de arquivos" enquanto os metadados chegam dos peers,
+/// com cronômetro e o botão "Tentar novamente" (cancela a busca e procura peers do zero).
+/// Várias janelas destas podem ficar abertas ao mesmo tempo, cada uma com seu torrent.
 /// </summary>
 public sealed class AddTorrentViewModel : ObservableObject, IDisposable
 {
@@ -20,7 +23,14 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
     private readonly ISettingsService _settings;
     private readonly Func<string, string?> _pickFolder;
     private string? _existingId;
+    private static readonly TimeSpan SlowAfter = TimeSpan.FromSeconds(30);
+
     private readonly CancellationTokenSource _cts = new();
+    private readonly DispatcherTimer _clock;
+    private string? _magnet;
+    private CancellationTokenSource? _loadCts;
+    private Task? _loadTask;
+    private DateTime _loadStartedAt;
     private TorrentPreview? _preview;
     private FileNode? _tree;
     private bool _isLoading;
@@ -40,9 +50,38 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
         SelectAllCommand = new RelayCommand(() => SetAll(true), () => _tree is not null);
         SelectNoneCommand = new RelayCommand(() => SetAll(false), () => _tree is not null);
         ConfirmCommand = new AsyncRelayCommand(ConfirmAsync, CanConfirm);
+        RetryCommand = new AsyncRelayCommand(RetryAsync, () => CanRetry);
+
+        _clock = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) =>
+        {
+            OnPropertyChanged(nameof(ElapsedText));
+            OnPropertyChanged(nameof(IsSlow));
+        }, Dispatcher.CurrentDispatcher);
     }
 
     public event EventHandler<bool>? CloseRequested;
+
+    /// <summary>Pedido de trazer a janela para frente (o mesmo torrent foi aberto de novo).</summary>
+    public event EventHandler? ActivateRequested;
+
+    /// <summary>A janela fechou e este ViewModel foi descartado.</summary>
+    public event EventHandler? Closed;
+
+    public AsyncRelayCommand RetryCommand { get; }
+
+    /// <summary>Magnet ainda sem lista de arquivos (procurando ou falhou): dá para tentar de novo.</summary>
+    public bool CanRetry => _magnet is not null && _preview is null && !IsBusy;
+
+    public string ElapsedText
+    {
+        get
+        {
+            var t = DateTime.UtcNow - _loadStartedAt;
+            return Strings.T("Add.Elapsed", $"{(int)t.TotalMinutes}:{t.Seconds:00}");
+        }
+    }
+
+    public bool IsSlow => IsLoading && DateTime.UtcNow - _loadStartedAt >= SlowAfter;
 
     public RelayCommand BrowseCommand { get; }
     public RelayCommand SelectAllCommand { get; }
@@ -56,8 +95,12 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
         get => _isLoading;
         private set
         {
-            if (SetProperty(ref _isLoading, value))
-                OnPropertyChanged(nameof(IsReady));
+            if (!SetProperty(ref _isLoading, value))
+                return;
+            OnPropertyChanged(nameof(IsReady));
+            OnPropertyChanged(nameof(IsSlow));
+            OnPropertyChanged(nameof(CanRetry));
+            RetryCommand.NotifyCanExecuteChanged();
         }
     }
 
@@ -151,16 +194,56 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
         }
     }
 
-    public async Task LoadMagnetAsync(string magnet)
+    public Task LoadMagnetAsync(string magnet)
     {
+        _magnet = magnet;
+        _loadTask = FetchAsync();
+        return _loadTask;
+    }
+
+    public void Activate() => ActivateRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Cancela a busca atual (espera ela soltar o torrent no motor) e procura de novo.</summary>
+    private async Task RetryAsync()
+    {
+        if (_magnet is null)
+            return;
+        Serilog.Log.Information("Magnet: tentando obter a lista de arquivos de novo");
+        if (_loadCts is not null)
+            await _loadCts.CancelAsync();
+        if (_loadTask is not null)
+        {
+            try
+            {
+                await _loadTask;
+            }
+            catch (OperationCanceledException)
+            {
+                // Busca anterior cancelada.
+            }
+        }
+        if (_cts.IsCancellationRequested || _preview is not null)
+            return;
+        _loadTask = FetchAsync();
+        await _loadTask;
+    }
+
+    private async Task FetchAsync()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+        _loadCts = cts;
+        _loadStartedAt = DateTime.UtcNow;
+        Error = null;
         IsLoading = true;
+        _clock.Start();
+        OnPropertyChanged(nameof(ElapsedText));
         try
         {
-            SetPreview(await _service.PrepareMagnetAsync(magnet, _cts.Token));
+            SetPreview(await _service.PrepareMagnetAsync(_magnet!, cts.Token));
         }
         catch (OperationCanceledException)
         {
-            // Usuário cancelou.
+            // Usuário cancelou ou pediu para tentar de novo.
         }
         catch (TorrentInputException ex)
         {
@@ -173,6 +256,8 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
         }
         finally
         {
+            _clock.Stop();
+            _loadCts = null;
             IsLoading = false;
         }
     }
@@ -271,6 +356,8 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
 
     private void RefreshCommands()
     {
+        OnPropertyChanged(nameof(CanRetry));
+        RetryCommand.NotifyCanExecuteChanged();
         BrowseCommand.NotifyCanExecuteChanged();
         SelectAllCommand.NotifyCanExecuteChanged();
         SelectNoneCommand.NotifyCanExecuteChanged();
@@ -281,7 +368,9 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        _clock.Stop();
         _cts.Cancel();
         _cts.Dispose();
+        Closed?.Invoke(this, EventArgs.Empty);
     }
 }

@@ -7,7 +7,7 @@
                xmlns:vm="clr-namespace:Itorrent.Desktop.ViewModels"
                Title="{Binding DialogTitle}" IsDialog="True"
                Width="640" Height="590" MinWidth="520" MinHeight="460"
-               WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+               WindowStartupLocation="CenterOwner" ShowInTaskbar="True">
     <Grid Margin="12,10,12,12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -107,6 +107,10 @@
                     <ContentControl Style="{StaticResource BusyBar}" Width="360" />
                     <TextBlock Text="{l:L Add.FetchingHint}" Foreground="{StaticResource Shadow}"
                                HorizontalAlignment="Center" Margin="0,8,0,0" />
+                    <TextBlock Text="{Binding ElapsedText}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                    <TextBlock Text="{l:L Add.SlowHint}" Foreground="{StaticResource Alert}" FontWeight="Bold" TextWrapping="Wrap"
+                               TextAlignment="Center" Margin="0,8,0,0"
+                               Visibility="{Binding IsSlow, Converter={StaticResource BoolToVis}}" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -135,9 +139,13 @@
                    Margin="0,6,0,0" Visibility="{Binding Error, Converter={StaticResource ShowIf}}" />
 
         <!-- Botões -->
-        <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button Content="{l:L Add.Download}" IsDefault="True" Command="{Binding ConfirmCommand}" Width="96" Margin="0,0,8,0" />
-            <Button Content="{l:L Common.Cancel}" IsCancel="True" Width="96" />
-        </StackPanel>
+        <DockPanel Grid.Row="7" Margin="0,10,0,0">
+            <Button DockPanel.Dock="Left" Content="{l:L Add.Retry}" Command="{Binding RetryCommand}" MinWidth="120" Padding="8,0"
+                    Visibility="{Binding CanRetry, Converter={StaticResource BoolToVis}}" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="{l:L Add.Download}" IsDefault="True" Command="{Binding ConfirmCommand}" Width="96" Margin="0,0,8,0" />
+                <Button Content="{l:L Common.Cancel}" IsCancel="True" Width="96" Click="Cancel_Click" />
+            </StackPanel>
+        </DockPanel>
     </Grid>
 </c:RetroWindow>

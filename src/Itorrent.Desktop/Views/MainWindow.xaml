@@ -108,6 +108,7 @@
                 </MenuItem>
                 <MenuItem Header="{l:L Menu.Options}">
                     <MenuItem Header="{l:L Menu.Turbo}" IsCheckable="True" IsChecked="{Binding IsTurbo}" />
+                    <MenuItem Header="{l:L Menu.TestConnection}" Command="{Binding TestConnectionCommand}" />
                     <Separator />
                     <MenuItem Header="{l:L Menu.Settings}" Command="{Binding SettingsCommand}" />
                 </MenuItem>
@@ -183,6 +184,12 @@
                             <TextBlock Text="{l:L Tool.Folder}" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
+                    <Button Style="{StaticResource ToolButtonB}" Command="{Binding TestConnectionCommand}" ToolTip="{l:L Tool.ConnectionTip}">
+                        <StackPanel>
+                            <Image Source="{a:Pixel Network}" Width="32" Height="32" />
+                            <TextBlock Text="{l:L Tool.Connection}" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                     <Button Style="{StaticResource ToolButtonB}" Command="{Binding SettingsCommand}" ToolTip="{l:L Settings.Title}">
                         <StackPanel>
                             <Image Source="{a:Pixel Settings}" Width="32" Height="32" />
@@ -216,6 +223,27 @@
                 </Border>
                 <Border Style="{StaticResource StatusPanel}" Width="110">
                     <TextBlock Text="{Binding DhtText}" Margin="4,2" VerticalAlignment="Center" />
+                </Border>
+                <Border Style="{StaticResource StatusPanel}" Width="120" Cursor="Hand" Background="Transparent"
+                        ToolTip="{l:L StatusBar.ConnectionTip}">
+                    <Border.InputBindings>
+                        <MouseBinding MouseAction="LeftClick" Command="{Binding TestConnectionCommand}" />
+                    </Border.InputBindings>
+                    <StackPanel Orientation="Horizontal" Margin="3,1">
+                        <Image Source="{a:Pixel Network}" Width="16" Height="16" />
+                        <TextBlock Text="{Binding ConnectionText}" VerticalAlignment="Center" Margin="3,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Connection}" Value="Offline">
+                                            <Setter Property="Foreground" Value="{StaticResource Alert}" />
+                                            <Setter Property="FontWeight" Value="Bold" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
                 </Border>
                 <Border Style="{StaticResource StatusPanel}" Width="96">
                     <TextBlock Text="{Binding TurboStatusText}" Margin="4,2" VerticalAlignment="Center" FontWeight="Bold">

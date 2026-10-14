@@ -28,9 +28,12 @@ public enum TorrentFilter
 /// <summary>Janelas que o ViewModel principal precisa abrir (implementado pela View).</summary>
 public interface IDialogs
 {
-    string? AskMagnet();
+    /// <summary>Um ou mais links magnet (um por linha); vazio se cancelou.</summary>
+    IReadOnlyList<string> AskMagnets();
     string? PickTorrentFile();
+    /// <summary>Abre a janela de adicionar sem bloquear (várias podem ficar abertas).</summary>
     void ShowAddTorrent(AddTorrentViewModel vm);
+    void ShowConnectionTest(Func<CancellationToken, Task<ConnectionReport>> test);
     (bool Confirmed, bool DeleteFiles) ConfirmRemove(string name);
     bool ConfirmDeleteFile(string name);
     bool ShowSettings();
@@ -50,6 +53,9 @@ public sealed class MainViewModel : ObservableObject
     private GlobalStats? _stats;
     private bool _isTurbo;
     private DateTimeOffset _idleSince = DateTimeOffset.Now;
+
+    /// <summary>Janelas de adicionar abertas, por torrent: abrir o mesmo de novo só traz a janela para frente.</summary>
+    private readonly Dictionary<string, AddTorrentViewModel> _openAdds = new(StringComparer.Ordinal);
 
     public MainViewModel(ITorrentService service, ISettingsService settings, IDialogs dialogs, Func<string, string?> pickFolder)
     {
@@ -76,6 +82,7 @@ public sealed class MainViewModel : ObservableObject
         ResumeAllCommand = new AsyncRelayCommand(() => _service.ResumeAllAsync());
         SettingsCommand = new AsyncRelayCommand(OpenSettingsAsync);
         AboutCommand = new RelayCommand(_dialogs.ShowAbout);
+        TestConnectionCommand = new RelayCommand(() => _dialogs.ShowConnectionTest(ct => _service.TestConnectionAsync(ct)));
         FilterCommand = new RelayCommand<TorrentFilter>(f => Filter = f);
 
         // Troca de idioma: todos os textos calculados aqui são refeitos na hora.
@@ -115,6 +122,7 @@ public sealed class MainViewModel : ObservableObject
     public AsyncRelayCommand ResumeAllCommand { get; }
     public AsyncRelayCommand SettingsCommand { get; }
     public RelayCommand AboutCommand { get; }
+    public RelayCommand TestConnectionCommand { get; }
     public RelayCommand<TorrentFilter> FilterCommand { get; }
 
     public TorrentItemViewModel? Selected
@@ -171,6 +179,15 @@ public sealed class MainViewModel : ObservableObject
     public string CountText => _stats is null ? "" : Strings.T("StatusBar.Torrents", _stats.ActiveTorrents, _stats.TotalTorrents);
     public string PortText => _stats is null ? "" : Strings.T("StatusBar.Port", _stats.ListenPort);
     public string DhtText => _stats is null ? "" : Strings.T("StatusBar.Dht", DhtLabel(_stats.DhtStatus));
+    public ConnectionStatus Connection => _stats?.Connection ?? ConnectionStatus.Online;
+
+    public string ConnectionText => Connection switch
+    {
+        ConnectionStatus.Offline => Strings.T("StatusBar.Offline"),
+        ConnectionStatus.Reconnecting => Strings.T("StatusBar.Reconnecting"),
+        _ => Strings.T("StatusBar.Online"),
+    };
+
     public string TurboStatusText => IsTurbo ? Strings.T("StatusBar.Turbo") : Strings.T("StatusBar.Normal");
 
     public string DetailsTitle => Selected is null ? Strings.T("Main.Files") : Strings.T("Main.FilesOf", Selected.Name);
@@ -210,6 +227,8 @@ public sealed class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(CountText));
             OnPropertyChanged(nameof(PortText));
             OnPropertyChanged(nameof(DhtText));
+            OnPropertyChanged(nameof(Connection));
+            OnPropertyChanged(nameof(ConnectionText));
             OnPropertyChanged(nameof(TurboStatusText));
 
             RefreshSelection();
@@ -299,6 +318,15 @@ public sealed class MainViewModel : ObservableObject
     /// <summary>Recebe um magnet ou caminho de .torrent de fonte externa. Tudo é validado no Core.</summary>
     public void HandleExternalInput(string input)
     {
+        // Texto arrastado/colado pode trazer vários magnets, um por linha.
+        var lines = input.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (lines.Length > 1 && lines.All(l => l.StartsWith("magnet:", StringComparison.OrdinalIgnoreCase)))
+        {
+            foreach (var line in lines.Distinct(StringComparer.OrdinalIgnoreCase).Take(20))
+                OpenMagnet(line);
+            return;
+        }
+
         input = input.Trim().Trim('"');
         if (input.StartsWith("magnet:", StringComparison.OrdinalIgnoreCase))
             OpenMagnet(input);
@@ -319,17 +347,41 @@ public sealed class MainViewModel : ObservableObject
 
     private void AddMagnet()
     {
-        if (_dialogs.AskMagnet() is { } link)
+        foreach (var link in _dialogs.AskMagnets())
             OpenMagnet(link);
+    }
+
+    /// <summary>Já há uma janela aberta para este torrent? Traz ela para frente.</summary>
+    private bool ActivateOpen(string id)
+    {
+        if (!_openAdds.TryGetValue(id, out var open))
+            return false;
+        open.Activate();
+        return true;
+    }
+
+    private void ShowAdd(string id, AddTorrentViewModel vm)
+    {
+        _openAdds[id] = vm;
+        vm.Closed += (_, _) =>
+        {
+            if (_openAdds.TryGetValue(id, out var current) && current == vm)
+                _openAdds.Remove(id);
+            Tick();
+        };
+        _dialogs.ShowAddTorrent(vm);
     }
 
     private void OpenTorrentFile(string path)
     {
         try
         {
+            var preview = _service.PrepareTorrentFile(path);
+            if (ActivateOpen(preview.Id))
+                return;
             var vm = new AddTorrentViewModel(_service, _settings, _pickFolder);
-            vm.SetPreview(_service.PrepareTorrentFile(path));
-            _dialogs.ShowAddTorrent(vm);
+            vm.SetPreview(preview);
+            ShowAdd(preview.Id, vm);
         }
         catch (TorrentInputException ex)
         {
@@ -339,15 +391,18 @@ public sealed class MainViewModel : ObservableObject
 
     private void OpenMagnet(string link)
     {
-        if (!LinkValidator.IsValidMagnet(link))
+        if (!LinkValidator.TryParseMagnet(link, out var magnet))
         {
             Log.Warning("Magnet recusado pela validação");
             _dialogs.ShowError(Strings.T("Err.InvalidMagnet"));
             return;
         }
+        var id = TorrentService.IdOf(magnet.InfoHashes);
+        if (ActivateOpen(id))
+            return;
         var vm = new AddTorrentViewModel(_service, _settings, _pickFolder);
         _ = vm.LoadMagnetAsync(link);
-        _dialogs.ShowAddTorrent(vm);
+        ShowAdd(id, vm);
     }
 
     // ===== Comandos =====
@@ -430,9 +485,11 @@ public sealed class MainViewModel : ObservableObject
             return;
         try
         {
+            if (ActivateOpen(s.Id))
+                return;
             var vm = new AddTorrentViewModel(_service, _settings, _pickFolder);
             vm.SetExisting(s.Id, _service.GetPreview(s.Id), snapshot.SavePath, _service.GetSelectedFiles(s.Id));
-            _dialogs.ShowAddTorrent(vm);
+            ShowAdd(s.Id, vm);
         }
         catch (TorrentInputException ex)
         {

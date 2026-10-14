@@ -10,7 +10,7 @@ using Serilog;
 
 namespace Itorrent.Core.Engine;
 
-public sealed class TorrentService : ITorrentService
+public sealed partial class TorrentService : ITorrentService
 {
     private static readonly TimeSpan ScrapeInterval = TimeSpan.FromMinutes(3);
 
@@ -57,6 +57,7 @@ public sealed class TorrentService : ITorrentService
                 _log.Error(ex, "Falha ao restaurar torrent {Id}", record.Id);
             }
         }
+        StartWatchdog();
     }
 
     private async Task RestoreAsync(TorrentRecord record)
@@ -684,13 +685,15 @@ public sealed class TorrentService : ITorrentService
             entries.Count,
             _settings.Current.TurboMode,
             _settings.Current.ListenPort,
-            engine.Dht.State.ToString());
+            engine.Dht.State.ToString(),
+            _connection);
     }
 
     public async ValueTask DisposeAsync()
     {
         if (_engine is null)
             return;
+        StopWatchdog();
         try
         {
             await _engine.StopAllAsync(TimeSpan.FromSeconds(8));

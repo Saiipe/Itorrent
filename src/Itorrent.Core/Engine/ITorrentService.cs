@@ -58,7 +58,30 @@ public interface ITorrentService : IAsyncDisposable
     IReadOnlyList<FileSnapshot> GetFiles(string id);
     GlobalStats GetGlobalStats();
 
+    /// <summary>
+    /// Confere rede, internet, porta, DHT e trackers. No caminho já reconecta (anuncia de novo
+    /// aos trackers e DHT, reinicia o que estiver travado) e devolve o resultado de cada etapa.
+    /// </summary>
+    Task<ConnectionReport> TestConnectionAsync(CancellationToken cancellationToken);
+
     event EventHandler<TorrentCompletedEventArgs>? TorrentCompleted;
+}
+
+public enum CheckResult
+{
+    Ok,
+    Warning,
+    Failed,
+    Skipped,
+}
+
+/// <summary>Uma etapa do teste de conexão: nome, resultado e explicação para o usuário.</summary>
+public sealed record ConnectionCheck(string Name, CheckResult Result, string Detail);
+
+public sealed record ConnectionReport(IReadOnlyList<ConnectionCheck> Checks)
+{
+    public bool HasFailures => Checks.Any(c => c.Result == CheckResult.Failed);
+    public bool HasWarnings => Checks.Any(c => c.Result == CheckResult.Warning);
 }
 
 public sealed class TorrentCompletedEventArgs(string id, string name, string savePath) : EventArgs
