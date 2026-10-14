@@ -7,7 +7,7 @@
 ;     -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish/win-x64
 
 #define AppName "Itorrent"
-#define AppVersion "1.2.0"
+#define AppVersion "1.2.1"
 #define AppExe "Itorrent.exe"
 #define AppPublisher "Saipe"
 

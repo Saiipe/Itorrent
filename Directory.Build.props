@@ -8,7 +8,7 @@
     <LangVersion>latest</LangVersion>
     <Company>Saipe</Company>
     <Product>Itorrent</Product>
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
     <!-- Versão limpa nas propriedades do .exe (sem o código do commit). -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
