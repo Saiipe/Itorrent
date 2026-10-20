@@ -80,6 +80,12 @@ public sealed class MainViewModel : ObservableObject
         OpenFolderCommand = new RelayCommand(OpenFolder, () => Selected is not null);
         ReannounceCommand = new AsyncRelayCommand(() => Run(s => _service.ReannounceAsync(s.Id)),
             () => Selected?.CanReannounce == true);
+        SeedCommand = new AsyncRelayCommand(() => Run(s => _service.SeedAsync(s.Id)), () => Selected?.CanSeed == true);
+        StopSeedingCommand = new AsyncRelayCommand(() => Run(s => _service.StopSeedingAsync(s.Id)),
+            () => Selected?.CanStopSeeding == true);
+        SeedToggleCommand = new AsyncRelayCommand(
+            () => Run(s => s.CanStopSeeding ? _service.StopSeedingAsync(s.Id) : _service.SeedAsync(s.Id)),
+            () => Selected is { CanSeed: true } or { CanStopSeeding: true });
         PauseAllCommand = new AsyncRelayCommand(() => _service.PauseAllAsync());
         ResumeAllCommand = new AsyncRelayCommand(() => _service.ResumeAllAsync());
         SettingsCommand = new AsyncRelayCommand(OpenSettingsAsync);
@@ -121,6 +127,13 @@ public sealed class MainViewModel : ObservableObject
     public AsyncRelayCommand<FileItemViewModel> DeleteFileCommand { get; }
     public RelayCommand OpenFolderCommand { get; }
     public AsyncRelayCommand ReannounceCommand { get; }
+    public AsyncRelayCommand SeedCommand { get; }
+    public AsyncRelayCommand StopSeedingCommand { get; }
+
+    /// <summary>Botão Semear da barra: semeia o concluído selecionado ou para o que está semeando.</summary>
+    public AsyncRelayCommand SeedToggleCommand { get; }
+
+    public string SeedToggleLabel => Selected?.CanStopSeeding == true ? Strings.T("Tool.StopSeed") : Strings.T("Tool.Seed");
     public AsyncRelayCommand PauseAllCommand { get; }
     public AsyncRelayCommand ResumeAllCommand { get; }
     public AsyncRelayCommand SettingsCommand { get; }
@@ -298,6 +311,10 @@ public sealed class MainViewModel : ObservableObject
         RedownloadCommand.NotifyCanExecuteChanged();
         OpenFolderCommand.NotifyCanExecuteChanged();
         ReannounceCommand.NotifyCanExecuteChanged();
+        SeedCommand.NotifyCanExecuteChanged();
+        StopSeedingCommand.NotifyCanExecuteChanged();
+        SeedToggleCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(SeedToggleLabel));
     }
 
     private static bool Matches(TorrentItemViewModel t, TorrentFilter f) => f switch

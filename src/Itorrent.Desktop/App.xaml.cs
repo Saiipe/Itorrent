@@ -25,9 +25,20 @@ public partial class App : Application
     private MainWindow? _window;
     private bool _exiting;
 
+    /// <summary>
+    /// Pasta alternativa de dados (caminho completo), para testar sem tocar nos seus torrents.
+    /// Ganha também uma instância própria, separada do Itorrent normal.
+    /// </summary>
+    public const string DataDirectoryVariable = "ITORRENT_DATA_DIR";
+
+    public static string? CustomDataDirectory { get; } =
+        Environment.GetEnvironmentVariable(DataDirectoryVariable) is { Length: > 0 } dir && Path.IsPathFullyQualified(dir)
+            ? Path.GetFullPath(dir)
+            : null;
+
     /// <summary>Dados, banco e logs em %LocalAppData%\Itorrent (nunca em Program Files).</summary>
-    public static string DataDirectory { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Itorrent");
+    public static string DataDirectory { get; } = CustomDataDirectory
+        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Itorrent");
 
     protected override async void OnStartup(StartupEventArgs e)
     {

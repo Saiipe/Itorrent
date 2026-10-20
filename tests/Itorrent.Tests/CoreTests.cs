@@ -69,6 +69,41 @@ public class PolicyEngineTests
         Assert.True(new AppSettings().MinimizeToTrayOnClose);
     }
 
+    [Theory]
+    [InlineData(500, 1000, 1000, 0.5)]
+    [InlineData(1000, 1000, 1000, 1.0)]
+    // Baixado por versão sem contador: a base é o que está no disco.
+    [InlineData(500, 0, 1000, 0.5)]
+    // Baixou mais do que tem (peças refeitas): a base é o baixado.
+    [InlineData(1000, 2000, 1000, 0.5)]
+    [InlineData(0, 0, 0, 0.0)]
+    [InlineData(100, 0, 0, 0.0)]
+    public void Share_ratio_is_uploaded_over_downloaded(long up, long down, long have, double expected) =>
+        Assert.Equal(expected, PolicyEngine.ShareRatio(up, down, have), 6);
+
+    [Fact]
+    public void Ratio_goal_and_bytes_left()
+    {
+        Assert.False(PolicyEngine.ReachedRatioGoal(0.99, 1.0));
+        Assert.True(PolicyEngine.ReachedRatioGoal(1.0, 1.0));
+        Assert.False(PolicyEngine.ReachedRatioGoal(50, 0));
+        Assert.Equal(400, PolicyEngine.BytesToGoal(600, 1000, 1000, 1.0));
+        Assert.Equal(1400, PolicyEngine.BytesToGoal(600, 1000, 1000, 2.0));
+        Assert.Equal(0, PolicyEngine.BytesToGoal(1200, 1000, 1000, 1.0));
+        Assert.Equal(0, PolicyEngine.BytesToGoal(0, 1000, 1000, 0));
+    }
+
+    [Fact]
+    public void Seeds_after_completion_by_default_up_to_ratio_one()
+    {
+        var s = new AppSettings();
+        Assert.True(s.SeedAfterComplete);
+        Assert.Equal(1.0, s.SeedRatioGoal);
+        Assert.Equal(0, new AppSettings { SeedRatioGoal = -3 }.Normalize().SeedRatioGoal);
+        Assert.Equal(AppSettings.MaxSeedRatioGoal, new AppSettings { SeedRatioGoal = 1e9 }.Normalize().SeedRatioGoal);
+        Assert.Equal(1.0, new AppSettings { SeedRatioGoal = double.NaN }.Normalize().SeedRatioGoal);
+    }
+
     [Fact]
     public void Partial_selection_completes_at_100_percent()
     {
@@ -147,6 +182,47 @@ public sealed class PersistenceTests : IDisposable
 
         repo.Delete("ABC");
         Assert.Empty(repo.GetAll());
+    }
+
+    [Fact]
+    public void Seeding_status_and_ratio_counter_survive_reopen()
+    {
+        var repo = new TorrentRepository(new Database(DbPath));
+        repo.Upsert(new TorrentRecord("ABC", "x", "C:\\dl", [1], [], new HashSet<int>(), StoredStatus.Completed,
+            100, 100, DateTimeOffset.Now, DateTimeOffset.Now, UploadedBytes: 10, DownloadedBytes: 100));
+        repo.SetStatus("ABC", StoredStatus.Seeding);
+        repo.SetTransferred("ABC", 250, 120);
+
+        var r = Assert.Single(new TorrentRepository(new Database(DbPath)).GetAll());
+        Assert.Equal(StoredStatus.Seeding, r.Status);
+        Assert.Equal(250, r.UploadedBytes);
+        Assert.Equal(120, r.DownloadedBytes);
+    }
+
+    [Fact]
+    public void Old_database_gets_the_ratio_columns()
+    {
+        Directory.CreateDirectory(_dir);
+        using (var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={DbPath}"))
+        {
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                CREATE TABLE torrents (
+                    id TEXT PRIMARY KEY, name TEXT NOT NULL, save_path TEXT NOT NULL, metadata BLOB NOT NULL,
+                    extra_trackers TEXT NOT NULL DEFAULT '', skipped_files TEXT NOT NULL DEFAULT '',
+                    status INTEGER NOT NULL, total_size INTEGER NOT NULL, selected_size INTEGER NOT NULL,
+                    added_at TEXT NOT NULL, completed_at TEXT NULL);
+                INSERT INTO torrents VALUES ('OLD', 'velho', 'C:\dl', x'01', '', '', 2, 10, 10, '2026-01-01T00:00:00.0000000-03:00', NULL);
+                """;
+            cmd.ExecuteNonQuery();
+        }
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        var r = Assert.Single(new TorrentRepository(new Database(DbPath)).GetAll());
+        Assert.Equal("velho", r.Name);
+        Assert.Equal(0, r.UploadedBytes);
+        Assert.Equal(0, r.DownloadedBytes);
     }
 
     public void Dispose()

@@ -37,7 +37,12 @@ public sealed record TorrentSnapshot(
     string SavePath,
     bool HasRiskyFiles,
     string? ErrorMessage,
-    DateTimeOffset AddedAt);
+    DateTimeOffset AddedAt,
+    long UploadedTotal = 0,
+    long DownloadedTotal = 0,
+    double Ratio = 0,
+    double RatioGoal = 0,
+    long BytesToGoal = 0);
 
 public sealed record FileSnapshot(
     int Index,

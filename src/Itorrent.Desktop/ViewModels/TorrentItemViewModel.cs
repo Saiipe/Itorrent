@@ -32,6 +32,33 @@ public sealed class TorrentItemViewModel(string id) : ObservableObject
     public string SavePath => _s?.SavePath ?? "";
     public bool HasRiskyFiles => _s?.HasRiskyFiles ?? false;
 
+    // ===== Ratio (enviado ÷ baixado) =====
+    public double Ratio => _s?.Ratio ?? 0;
+    public string RatioText => _s is null ? "" : Format.Ratio(Ratio);
+    public string UploadedText => _s is null ? "" : Format.Bytes(_s.UploadedTotal);
+    /// <summary>Base do ratio: o que foi baixado (ou o que está no disco, se for maior).</summary>
+    public double RatioBasis => _s is null ? 0 : Math.Max(_s.DownloadedTotal, _s.Downloaded);
+    public double UploadedTotal => _s?.UploadedTotal ?? 0;
+    public double RatioGoal => _s?.RatioGoal ?? 0;
+    public bool RatioReached => RatioGoal > 0 && Ratio >= RatioGoal;
+    public string RatioGoalText => Format.Ratio(RatioGoal);
+    /// <summary>Leechers conectados (total na rede): quem ainda está baixando e pode receber de você.</summary>
+    public string LeechersText => _s is null ? "" : Strings.T("Ratio.Leechers", PeersText);
+
+    public string RatioStatusText
+    {
+        get
+        {
+            if (_s is null)
+                return "";
+            if (RatioGoal <= 0)
+                return Status == TorrentStatus.Seeding ? Strings.T("Ratio.NoGoalSeeding") : Strings.T("Ratio.NoGoal");
+            if (RatioReached)
+                return Strings.T("Ratio.Reached", RatioGoalText);
+            return Strings.T("Ratio.NotReached", RatioGoalText, Format.Bytes(_s.BytesToGoal));
+        }
+    }
+
     // Valores "crus" usados para ordenar as colunas (o texto formatado não ordena certo).
     public long SortSize => _s?.SelectedSize ?? 0;
     public long SortDown => _s?.DownloadRate ?? 0;
@@ -40,15 +67,20 @@ public sealed class TorrentItemViewModel(string id) : ObservableObject
     public int SortSeeds => _s?.SeedsConnected ?? 0;
     public int SortPeers => _s?.LeechsConnected ?? 0;
     public DateTimeOffset SortAdded => _s?.AddedAt ?? DateTimeOffset.MinValue;
+    public double SortRatio => Ratio;
     public string? ErrorMessage => _s?.ErrorMessage;
 
     public bool CanPause => Status is TorrentStatus.Downloading or TorrentStatus.Stalled or TorrentStatus.Starting
         or TorrentStatus.FetchingMetadata or TorrentStatus.Checking or TorrentStatus.Seeding;
     public bool CanResume => Status is TorrentStatus.Paused or TorrentStatus.Error;
 
-    /// <summary>Ainda baixando (ou procurando peers): dá para procurar peers de novo.</summary>
+    /// <summary>Baixando, semeando ou procurando peers: dá para procurar peers de novo.</summary>
     public bool CanReannounce => Status is TorrentStatus.Downloading or TorrentStatus.Stalled
-        or TorrentStatus.Starting or TorrentStatus.FetchingMetadata or TorrentStatus.Error;
+        or TorrentStatus.Starting or TorrentStatus.FetchingMetadata or TorrentStatus.Error or TorrentStatus.Seeding;
+
+    /// <summary>Concluído: dá para voltar a semear.</summary>
+    public bool CanSeed => Status == TorrentStatus.Completed;
+    public bool CanStopSeeding => Status == TorrentStatus.Seeding;
 
     public void Refresh() => OnPropertyChanged(string.Empty);
 

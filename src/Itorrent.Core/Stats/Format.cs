@@ -37,6 +37,9 @@ public static class Format
         return string.Create(Strings.Culture, $"{t.Minutes}m {t.Seconds:00}s");
     }
 
+    /// <summary>Ratio (enviado ÷ baixado) com duas casas.</summary>
+    public static string Ratio(double ratio) => ratio.ToString("0.00", Strings.Culture);
+
     /// <summary>Formato do qBittorrent: conectados (total na rede).</summary>
     public static string Peers(int connected, int total) =>
         total >= 0 ? string.Create(Strings.Culture, $"{connected} ({total})") : string.Create(Strings.Culture, $"{connected} (?)");

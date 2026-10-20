@@ -13,6 +13,7 @@ namespace Itorrent.Core.Engine;
 public sealed partial class TorrentService : ITorrentService
 {
     private static readonly TimeSpan ScrapeInterval = TimeSpan.FromMinutes(3);
+    private static readonly TimeSpan TransferSaveInterval = TimeSpan.FromSeconds(30);
 
     private readonly ISettingsService _settings;
     private readonly TorrentRepository _repository;
@@ -20,6 +21,7 @@ public sealed partial class TorrentService : ITorrentService
     private readonly ILogger _log = Log.ForContext<TorrentService>();
     private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
     private readonly Lock _gate = new();
+    private readonly FileLocks _locks = new();
     private ClientEngine? _engine;
     private PartsStore? _parts;
 
@@ -74,10 +76,41 @@ public sealed partial class TorrentService : ITorrentService
         }
 
         var manager = await AddToEngineAsync(torrent, record.SavePath, record.SkippedFiles, record.ExtraTrackers);
+
+        // Arquivos apagados com o app fechado: o torrent sai da lista.
+        if (WasDeletedWhileClosed(manager, record))
+        {
+            _log.Information("Arquivos de {Id} apagados com o app fechado; removendo da lista", record.Id);
+            await Engine.RemoveAsync(manager, RemoveMode.CacheDataOnly);
+            _parts?.Delete(manager.Files);
+            _repository.Delete(record.Id);
+            return;
+        }
+
         var entry = Track(manager, record);
         entry.CompletionHandled = record.CompletedAt is not null;
-        if (record.Status == StoredStatus.Active)
+        // Semeando além da meta só acontece se o usuário pediu: continua sem limite.
+        entry.SeedBeyondGoal = record.Status == StoredStatus.Seeding
+            && PolicyEngine.ReachedRatioGoal(CompletedRatio(record), _settings.Current.SeedRatioGoal);
+        if (record.Status is StoredStatus.Active or StoredStatus.Seeding)
             await manager.StartAsync();
+    }
+
+    /// <summary>
+    /// Já tinha algo baixado e nenhum arquivo marcado está mais no disco. Se a unidade não está
+    /// disponível (HD externo desligado, rede), não conta como apagado.
+    /// </summary>
+    private bool WasDeletedWhileClosed(TorrentManager manager, TorrentRecord record)
+    {
+        var root = Path.GetPathRoot(record.SavePath);
+        if (string.IsNullOrEmpty(root) || !Directory.Exists(root))
+            return false;
+        var files = manager.Files;
+        var selected = Enumerable.Range(0, files.Count).Where(i => !record.SkippedFiles.Contains(i)).ToList();
+        var hadData = record.CompletedAt is not null || record.DownloadedBytes > 0
+            || selected.Any(i => files[i].BitField.TrueCount > 0);
+        return hadData && selected.Count > 0
+            && selected.All(i => !File.Exists(files[i].FullPath) && _parts?.IsParked(files[i]) != true);
     }
 
     public async Task<TorrentPreview> PrepareMagnetAsync(string magnetLink, CancellationToken cancellationToken)
@@ -290,10 +323,13 @@ public sealed partial class TorrentService : ITorrentService
             entry.CompletionHandled = true;
         }
 
+        // Semear ao concluir só se a opção estiver ligada e a meta de ratio ainda não foi atingida.
+        var seed = _settings.Current.SeedAfterComplete
+            && !PolicyEngine.ReachedRatioGoal(CompletedRatio(entry.Record), _settings.Current.SeedRatioGoal);
         try
         {
             // Primeiro marca e avisa; parar pode demorar (anúncio "stopped" aos trackers).
-            MarkCompleted(entry);
+            MarkCompleted(entry, seed ? StoredStatus.Seeding : StoredStatus.Completed);
 
             foreach (var (file, index) in entry.Manager.Files.Select((f, i) => (f, i)))
             {
@@ -308,17 +344,62 @@ public sealed partial class TorrentService : ITorrentService
         {
             _log.Error(ex, "Falha ao finalizar torrent {Id}", entry.Record.Id);
         }
-        await StopSeedingAsync(entry);
+        if (seed)
+            _log.Information("Semeando {Id} até o ratio {Goal}", entry.Record.Id, _settings.Current.SeedRatioGoal);
+        else
+            await StopEngineAsync(entry);
     }
 
-    private void MarkCompleted(Entry entry)
+    private void MarkCompleted(Entry entry, StoredStatus status = StoredStatus.Completed)
     {
-        entry.Record = entry.Record with { Status = StoredStatus.Completed, CompletedAt = entry.Record.CompletedAt ?? DateTimeOffset.Now };
-        _repository.SetStatus(entry.Record.Id, StoredStatus.Completed, entry.Record.CompletedAt);
+        entry.Record = entry.Record with { Status = status, CompletedAt = entry.Record.CompletedAt ?? DateTimeOffset.Now };
+        _repository.SetStatus(entry.Record.Id, status, entry.Record.CompletedAt);
     }
 
-    /// <summary>Concluído não semeia: para o torrent (uma parada por vez).</summary>
-    private async Task StopSeedingAsync(Entry entry)
+    /// <summary>Ratio de um torrent concluído (tudo o que foi marcado está no disco).</summary>
+    private static double CompletedRatio(TorrentRecord r) =>
+        PolicyEngine.ShareRatio(r.UploadedBytes, r.DownloadedBytes, r.SelectedSize);
+
+    public async Task SeedAsync(string id)
+    {
+        if (Find(id) is not { } entry || entry.Record.Status != StoredStatus.Completed)
+            return;
+        var files = entry.Manager.Files;
+        var missing = Enumerable.Range(0, files.Count)
+            .Where(i => !entry.Record.SkippedFiles.Contains(i) && !File.Exists(files[i].FullPath) && _parts?.IsParked(files[i]) != true)
+            .ToList();
+        if (missing.Count > 0)
+            throw new TorrentInputException(Strings.T("Err.SeedMissing", Path.GetFileName(files[missing[0]].Path)));
+
+        // Já passou da meta? Então o usuário quer semear mais: sem limite até ele parar.
+        entry.SeedBeyondGoal = PolicyEngine.ReachedRatioGoal(CompletedRatio(entry.Record), _settings.Current.SeedRatioGoal);
+        entry.Record = entry.Record with { Status = StoredStatus.Seeding };
+        _repository.SetStatus(id, StoredStatus.Seeding);
+        _log.Information("Semeando de novo {Id}", id);
+
+        await StopAndWaitAsync(entry.Manager);
+        await entry.Manager.StartAsync();
+    }
+
+    public async Task StopSeedingAsync(string id)
+    {
+        if (Find(id) is not { } entry || entry.Record.Status != StoredStatus.Seeding)
+            return;
+        MarkCompleted(entry);
+        _log.Information("Parou de semear {Id}", id);
+        await StopEngineAsync(entry);
+    }
+
+    /// <summary>Chegou na meta de ratio: volta a "Concluído" e para.</summary>
+    private async Task FinishSeedingAsync(Entry entry, double ratio)
+    {
+        MarkCompleted(entry);
+        _log.Information("Meta de ratio atingida em {Id} ({Ratio:0.00}); parando de semear", entry.Record.Id, ratio);
+        await StopEngineAsync(entry);
+    }
+
+    /// <summary>Concluído que não semeia: para o torrent (uma parada por vez).</summary>
+    private async Task StopEngineAsync(Entry entry)
     {
         lock (entry)
         {
@@ -344,6 +425,11 @@ public sealed partial class TorrentService : ITorrentService
     {
         if (Find(id) is not { } entry || entry.Record.Status == StoredStatus.Completed)
             return;
+        if (entry.Record.Status == StoredStatus.Seeding)
+        {
+            await StopSeedingAsync(id);
+            return;
+        }
         entry.Record = entry.Record with { Status = StoredStatus.Paused };
         _repository.SetStatus(id, StoredStatus.Paused);
         await StopAndWaitAsync(entry.Manager);
@@ -351,7 +437,7 @@ public sealed partial class TorrentService : ITorrentService
 
     public async Task ResumeAsync(string id)
     {
-        if (Find(id) is not { } entry || entry.Record.Status == StoredStatus.Completed)
+        if (Find(id) is not { } entry || entry.Record.Status is StoredStatus.Completed or StoredStatus.Seeding)
             return;
         entry.Record = entry.Record with { Status = StoredStatus.Active };
         _repository.SetStatus(id, StoredStatus.Active);
@@ -440,6 +526,8 @@ public sealed partial class TorrentService : ITorrentService
 
         // Caminho rápido: só muda a prioridade. O motor já sabe o que tem e baixa só o que falta.
         await manager.SetFilePriorityAsync(file, selected ? Priority.Normal : Priority.DoNotDownload);
+        if (!selected)
+            _locks.Release(file.FullPath);
 
         var skipped = Enumerable.Range(0, files.Count).Where(i => !selection.Contains(i)).ToHashSet();
         var needsDownload = selected && file.BitField.PercentComplete < 100.0;
@@ -447,7 +535,9 @@ public sealed partial class TorrentService : ITorrentService
         {
             SkippedFiles = skipped,
             SelectedSize = files.Where((_, i) => !skipped.Contains(i)).Sum(f => f.Length),
-            Status = needsDownload && entry.Record.Status == StoredStatus.Completed ? StoredStatus.Active : entry.Record.Status,
+            Status = needsDownload && entry.Record.Status is StoredStatus.Completed or StoredStatus.Seeding
+                ? StoredStatus.Active
+                : entry.Record.Status,
             CompletedAt = needsDownload ? null : entry.Record.CompletedAt,
         };
         _repository.Upsert(entry.Record);
@@ -499,9 +589,18 @@ public sealed partial class TorrentService : ITorrentService
         lock (_gate)
             _entries.Remove(id);
 
-        await StopAndWaitAsync(entry.Manager);
-        await Engine.RemoveAsync(entry.Manager,
-            deleteFiles ? RemoveMode.CacheDataAndDownloadedData : RemoveMode.CacheDataOnly);
+        // Uma sincronização que já estava rodando não pode travar de novo no meio da exclusão.
+        var unlocked = entry.Manager.Files.Select(f => _locks.Suspend(f.FullPath)).ToList();
+        try
+        {
+            await StopAndWaitAsync(entry.Manager);
+            await Engine.RemoveAsync(entry.Manager,
+                deleteFiles ? RemoveMode.CacheDataAndDownloadedData : RemoveMode.CacheDataOnly);
+        }
+        finally
+        {
+            unlocked.ForEach(u => u.Dispose());
+        }
         _parts?.Delete(entry.Manager.Files);
         _repository.Delete(id);
         _log.Information("Torrent removido {Id} (apagar arquivos: {Delete})", id, deleteFiles);
@@ -556,12 +655,14 @@ public sealed partial class TorrentService : ITorrentService
         var r = e.Record;
 
         SyncDeletedFiles(e, now);
+        SyncLocks(e, now);
+        AccountTransfer(e, now);
 
         if (!e.CompletionHandled && PolicyEngine.IsPartialCompletion(m.State, m.PartialProgress))
             _ = HandleCompletionAsync(e);
 
-        // Rede de segurança: nada fica semeando (evento perdido, parada que falhou...).
-        if (m.State == TorrentState.Seeding)
+        // Rede de segurança: só semeia quem foi mandado semear (evento perdido, parada que falhou...).
+        if (m.State == TorrentState.Seeding && e.Record.Status != StoredStatus.Seeding)
         {
             if (!e.CompletionHandled)
                 _ = HandleCompletionAsync(e);
@@ -569,9 +670,14 @@ public sealed partial class TorrentService : ITorrentService
             {
                 if (e.Record.Status == StoredStatus.Active)
                     MarkCompleted(e);
-                _ = StopSeedingAsync(e);
+                _ = StopEngineAsync(e);
             }
         }
+
+        var goal = _settings.Current.SeedRatioGoal;
+        if (e.Record.Status == StoredStatus.Seeding && !e.SeedBeyondGoal && !e.StoppingSeed
+            && CompletedRatio(e.Record) is var seedRatio && PolicyEngine.ReachedRatioGoal(seedRatio, goal))
+            _ = FinishSeedingAsync(e, seedRatio);
         r = e.Record;
 
         if (m.State is TorrentState.Downloading or TorrentState.Seeding && now - e.LastScrape > ScrapeInterval)
@@ -580,7 +686,7 @@ public sealed partial class TorrentService : ITorrentService
             _ = ScrapeAsync(m);
         }
 
-        var completed = r.Status == StoredStatus.Completed;
+        var completed = r.Status is StoredStatus.Completed or StoredStatus.Seeding;
         var progress = completed ? 100.0 : Math.Clamp(m.PartialProgress, 0, 100);
         var downloaded = (long)(r.SelectedSize * progress / 100.0);
         var rate = m.Monitor.DownloadRate;
@@ -599,13 +705,68 @@ public sealed partial class TorrentService : ITorrentService
             m.Peers.Seeds, m.Peers.Leechs, seedsTotal, leechsTotal,
             m.ContainingDirectory, risky,
             m.State == TorrentState.Error ? m.Error?.Exception?.Message ?? Strings.T("Err.Disk") : null,
-            r.AddedAt);
+            r.AddedAt,
+            r.UploadedBytes,
+            r.DownloadedBytes,
+            PolicyEngine.ShareRatio(r.UploadedBytes, r.DownloadedBytes, downloaded),
+            e.SeedBeyondGoal ? 0 : goal,
+            e.SeedBeyondGoal ? 0 : PolicyEngine.BytesToGoal(r.UploadedBytes, r.DownloadedBytes, downloaded, goal));
+    }
+
+    /// <summary>
+    /// Soma ao contador do ratio o que foi enviado/baixado desde a última foto. O monitor do motor
+    /// conta por sessão (zera ao reiniciar o torrent): se o valor diminuiu, a sessão é nova.
+    /// Grava no banco a cada 30 s (e ao fechar o app).
+    /// </summary>
+    private void AccountTransfer(Entry e, DateTime now)
+    {
+        var sent = e.Manager.Monitor.DataBytesSent;
+        var received = e.Manager.Monitor.DataBytesReceived;
+        var up = sent >= e.SessionSent ? sent - e.SessionSent : sent;
+        var down = received >= e.SessionReceived ? received - e.SessionReceived : received;
+        e.SessionSent = sent;
+        e.SessionReceived = received;
+        if (up > 0 || down > 0)
+        {
+            e.Record = e.Record with { UploadedBytes = e.Record.UploadedBytes + up, DownloadedBytes = e.Record.DownloadedBytes + down };
+            e.TransferDirty = true;
+        }
+        if (e.TransferDirty && now - e.LastTransferSave >= TransferSaveInterval)
+            SaveTransfer(e, now);
+    }
+
+    private void SaveTransfer(Entry e, DateTime now)
+    {
+        e.LastTransferSave = now;
+        if (!e.TransferDirty)
+            return;
+        e.TransferDirty = false;
+        try
+        {
+            _repository.SetTransferred(e.Record.Id, e.Record.UploadedBytes, e.Record.DownloadedBytes);
+        }
+        catch (Exception ex)
+        {
+            _log.Warning(ex, "Falha ao gravar o contador de ratio de {Id}", e.Record.Id);
+        }
     }
 
     private static TorrentStatus MapStatus(TorrentManager m, TorrentRecord r)
     {
         if (r.Status == StoredStatus.Completed)
             return TorrentStatus.Completed;
+        if (r.Status == StoredStatus.Seeding)
+        {
+            // Com arquivos desmarcados o motor fica em "Downloading" a 100%: ainda assim está semeando.
+            return m.State switch
+            {
+                TorrentState.Hashing or TorrentState.HashingPaused or TorrentState.FetchingHashes => TorrentStatus.Checking,
+                TorrentState.Stopping => TorrentStatus.Stopping,
+                TorrentState.Error => TorrentStatus.Error,
+                TorrentState.Seeding or TorrentState.Downloading => TorrentStatus.Seeding,
+                _ => TorrentStatus.Starting,
+            };
+        }
         return m.State switch
         {
             TorrentState.Metadata => TorrentStatus.FetchingMetadata,
@@ -649,7 +810,7 @@ public sealed partial class TorrentService : ITorrentService
     {
         if (Find(id) is not { } entry)
             return [];
-        var completed = entry.Record.Status == StoredStatus.Completed;
+        var completed = entry.Record.Status is StoredStatus.Completed or StoredStatus.Seeding;
         return entry.Manager.Files.Select((f, i) =>
         {
             var selected = !entry.Record.SkippedFiles.Contains(i);
@@ -684,6 +845,25 @@ public sealed partial class TorrentService : ITorrentService
         _ = SkipFilesAsync(e, deleted);
     }
 
+    /// <summary>
+    /// A cada 3 s trava os arquivos marcados que estão no disco (o Explorer não consegue apagar
+    /// com o app aberto) e solta os desmarcados.
+    /// </summary>
+    private void SyncLocks(Entry e, DateTime now)
+    {
+        if (now - e.LastLockSync < TimeSpan.FromSeconds(3))
+            return;
+        e.LastLockSync = now;
+        var files = e.Manager.Files;
+        for (var i = 0; i < files.Count; i++)
+        {
+            if (e.Record.SkippedFiles.Contains(i))
+                _locks.Release(files[i].FullPath);
+            else
+                _locks.Hold(files[i].FullPath);
+        }
+    }
+
     /// <summary>Desmarca arquivos (não baixar). Atualiza a lista na hora; o motor em seguida.</summary>
     private async Task SkipFilesAsync(Entry entry, IReadOnlyCollection<int> indexes)
     {
@@ -695,6 +875,7 @@ public sealed partial class TorrentService : ITorrentService
             SelectedSize = files.Where((_, i) => !skipped.Contains(i)).Sum(f => f.Length),
         };
         _repository.Upsert(entry.Record);
+        _locks.Release(indexes.Select(i => files[i].FullPath));
         try
         {
             foreach (var i in indexes)
@@ -725,6 +906,8 @@ public sealed partial class TorrentService : ITorrentService
         // Para o torrent para o motor soltar o arquivo, apaga e confere.
         var wasRunning = manager.State is not (TorrentState.Stopped or TorrentState.Error);
         entry.CompletionHandled = true;
+        // Solta a trava antes e não deixa a sincronização travar de novo no meio da exclusão.
+        using var unlocked = _locks.Suspend(path);
         await StopAndWaitAsync(manager);
         try
         {
@@ -737,8 +920,8 @@ public sealed partial class TorrentService : ITorrentService
         }
         finally
         {
-            entry.CompletionHandled = entry.Record.Status == StoredStatus.Completed;
-            if (wasRunning && entry.Record.Status == StoredStatus.Active)
+            entry.CompletionHandled = entry.Record.Status is StoredStatus.Completed or StoredStatus.Seeding;
+            if (wasRunning && entry.Record.Status is StoredStatus.Active or StoredStatus.Seeding)
                 await manager.StartAsync();
         }
 
@@ -771,6 +954,11 @@ public sealed partial class TorrentService : ITorrentService
         if (_engine is null)
             return;
         StopWatchdog();
+        foreach (var e in AllEntries())
+        {
+            AccountTransfer(e, DateTime.UtcNow);
+            SaveTransfer(e, DateTime.UtcNow);
+        }
         try
         {
             await _engine.StopAllAsync(TimeSpan.FromSeconds(8));
@@ -784,6 +972,7 @@ public sealed partial class TorrentService : ITorrentService
         }
         finally
         {
+            _locks.Dispose();
             _engine.Dispose();
             _engine = null;
         }
@@ -813,8 +1002,15 @@ public sealed partial class TorrentService : ITorrentService
         public TorrentRecord Record { get; set; } = record;
         public bool CompletionHandled { get; set; }
         public bool StoppingSeed { get; set; }
+        /// <summary>Semeando por pedido do usuário depois de já ter passado da meta: sem limite.</summary>
+        public bool SeedBeyondGoal { get; set; }
+        public long SessionSent { get; set; }
+        public long SessionReceived { get; set; }
+        public bool TransferDirty { get; set; }
+        public DateTime LastTransferSave { get; set; } = DateTime.UtcNow;
         public DateTime LastScrape { get; set; } = DateTime.MinValue;
         public DateTime LastDeletedCheck { get; set; } = DateTime.MinValue;
+        public DateTime LastLockSync { get; set; } = DateTime.MinValue;
     }
 
     private sealed class ManagerControl(TorrentManager manager) : ITorrentControl

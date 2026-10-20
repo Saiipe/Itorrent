@@ -50,6 +50,15 @@ public interface ITorrentService : IAsyncDisposable
     /// </summary>
     Task ReannounceAsync(string id);
 
+    /// <summary>
+    /// Volta a semear um torrent concluído (os arquivos precisam estar no disco). Para sozinho
+    /// na meta de ratio; se a meta já foi atingida, semeia até o usuário parar.
+    /// </summary>
+    Task SeedAsync(string id);
+
+    /// <summary>Para de semear: o torrent volta a "Concluído". Pausar um torrent semeando faz o mesmo.</summary>
+    Task StopSeedingAsync(string id);
+
     Task PauseAsync(string id);
     Task ResumeAsync(string id);
     Task RemoveAsync(string id, bool deleteFiles);

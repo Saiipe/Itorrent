@@ -13,6 +13,14 @@ public sealed record AppSettings
 
     public bool TurboMode { get; init; }
 
+    /// <summary>Ao concluir, continua semeando (até a meta de ratio) em vez de parar.</summary>
+    public bool SeedAfterComplete { get; init; } = true;
+
+    /// <summary>Para de semear sozinho quando o ratio (enviado ÷ baixado) chega aqui. 0 = sem limite.</summary>
+    public double SeedRatioGoal { get; init; } = 1.0;
+
+    public const double MaxSeedRatioGoal = 100;
+
     public bool AllowPortForwarding { get; init; } = true;
     public bool AllowDht { get; init; } = true;
     public bool AllowPeerExchange { get; init; } = true;
@@ -52,5 +60,6 @@ public sealed record AppSettings
         TurboConnectionsPerTorrent = Math.Clamp(TurboConnectionsPerTorrent, 200, 500),
         MaxDownloadKBps = Math.Max(0, MaxDownloadKBps),
         MaxUploadKBps = Math.Max(0, MaxUploadKBps),
+        SeedRatioGoal = double.IsFinite(SeedRatioGoal) ? Math.Round(Math.Clamp(SeedRatioGoal, 0, MaxSeedRatioGoal), 2) : 1.0,
     };
 }

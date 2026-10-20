@@ -8,6 +8,8 @@ public enum StoredStatus
     Active = 0,
     Paused = 1,
     Completed = 2,
+    /// <summary>Concluído e semeando de novo (até a meta de ratio ou até o usuário parar).</summary>
+    Seeding = 3,
 }
 
 public sealed record TorrentRecord(
@@ -21,7 +23,9 @@ public sealed record TorrentRecord(
     long TotalSize,
     long SelectedSize,
     DateTimeOffset AddedAt,
-    DateTimeOffset? CompletedAt);
+    DateTimeOffset? CompletedAt,
+    long UploadedBytes = 0,
+    long DownloadedBytes = 0);
 
 /// <summary>
 /// Lista de torrents. Sempre com consultas parametrizadas (nome de torrent é entrada não confiável).
@@ -34,7 +38,7 @@ public sealed class TorrentRepository(Database db)
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, name, save_path, metadata, extra_trackers, skipped_files, status,
-                   total_size, selected_size, added_at, completed_at
+                   total_size, selected_size, added_at, completed_at, uploaded_bytes, downloaded_bytes
             FROM torrents ORDER BY added_at
             """;
         using var r = cmd.ExecuteReader();
@@ -52,7 +56,9 @@ public sealed class TorrentRepository(Database db)
                 r.GetInt64(7),
                 r.GetInt64(8),
                 DateTimeOffset.Parse(r.GetString(9), CultureInfo.InvariantCulture),
-                r.IsDBNull(10) ? null : DateTimeOffset.Parse(r.GetString(10), CultureInfo.InvariantCulture)));
+                r.IsDBNull(10) ? null : DateTimeOffset.Parse(r.GetString(10), CultureInfo.InvariantCulture),
+                r.GetInt64(11),
+                r.GetInt64(12)));
         }
         return list;
     }
@@ -63,13 +69,14 @@ public sealed class TorrentRepository(Database db)
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT INTO torrents (id, name, save_path, metadata, extra_trackers, skipped_files, status,
-                                  total_size, selected_size, added_at, completed_at)
-            VALUES ($id, $name, $save, $meta, $trackers, $skipped, $status, $total, $selected, $added, $completed)
+                                  total_size, selected_size, added_at, completed_at, uploaded_bytes, downloaded_bytes)
+            VALUES ($id, $name, $save, $meta, $trackers, $skipped, $status, $total, $selected, $added, $completed, $up, $down)
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name, save_path = excluded.save_path, metadata = excluded.metadata,
                 extra_trackers = excluded.extra_trackers, skipped_files = excluded.skipped_files,
                 status = excluded.status, total_size = excluded.total_size,
-                selected_size = excluded.selected_size, completed_at = excluded.completed_at
+                selected_size = excluded.selected_size, completed_at = excluded.completed_at,
+                uploaded_bytes = excluded.uploaded_bytes, downloaded_bytes = excluded.downloaded_bytes
             """;
         cmd.Parameters.AddWithValue("$id", t.Id);
         cmd.Parameters.AddWithValue("$name", t.Name);
@@ -83,6 +90,20 @@ public sealed class TorrentRepository(Database db)
         cmd.Parameters.AddWithValue("$added", t.AddedAt.ToString("O", CultureInfo.InvariantCulture));
         cmd.Parameters.AddWithValue("$completed",
             (object?)t.CompletedAt?.ToString("O", CultureInfo.InvariantCulture) ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$up", t.UploadedBytes);
+        cmd.Parameters.AddWithValue("$down", t.DownloadedBytes);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Grava os totais enviados/baixados (contador do ratio).</summary>
+    public void SetTransferred(string id, long uploaded, long downloaded)
+    {
+        using var conn = db.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE torrents SET uploaded_bytes = $up, downloaded_bytes = $down WHERE id = $id";
+        cmd.Parameters.AddWithValue("$id", id);
+        cmd.Parameters.AddWithValue("$up", uploaded);
+        cmd.Parameters.AddWithValue("$down", downloaded);
         cmd.ExecuteNonQuery();
     }
 

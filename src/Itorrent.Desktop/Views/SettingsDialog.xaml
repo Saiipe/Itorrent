@@ -37,6 +37,14 @@
                         </DockPanel>
                         <CheckBox Content="{l:L Settings.Notify}" IsChecked="{Binding NotifyOnComplete}" />
                         <CheckBox Content="{l:L Settings.PreventSleep}" IsChecked="{Binding PreventSleepWhileDownloading}" />
+                        <CheckBox Content="{l:L Settings.SeedAfterComplete}" IsChecked="{Binding SeedAfterComplete}"
+                                  ToolTip="{l:L Settings.SeedAfterCompleteTip}" />
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                            <TextBlock Style="{StaticResource Row}" Text="{l:L Settings.SeedRatio}" />
+                            <TextBox Style="{StaticResource Num}" Width="50" Text="{Binding SeedRatioGoal}" />
+                            <TextBlock Style="{StaticResource Row}" Margin="6,2,0,2" FontSize="11" Foreground="{StaticResource Shadow}"
+                                       Text="{l:L Settings.SeedRatioHint}" />
+                        </StackPanel>
                     </StackPanel>
                 </GroupBox>
 

@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white" alt=".NET 10" />
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white" alt="Windows 10 e 11" />
   <img src="https://img.shields.io/badge/interface-WPF-5C2D91" alt="WPF" />
-  <img src="https://img.shields.io/badge/testes-87%20passando-2EA44F" alt="87 testes passando" />
+  <img src="https://img.shields.io/badge/testes-102%20passando-2EA44F" alt="102 testes passando" />
   <img src="https://img.shields.io/badge/an%C3%BAncios-zero-000080" alt="Zero anúncios" />
 </p>
 
@@ -76,12 +76,15 @@ Por baixo do visual antigo está tudo moderno: .NET 10, WPF, suporte a alta reso
 | Adicionar torrents | Por link magnet, arquivo `.torrent`, arrastar e soltar ou clique no navegador. |
 | Escolher antes de baixar | Mostra todos os arquivos numa árvore; você desmarca o que não quer, escolhe a pasta e vê o espaço livre no disco. |
 | Baixar de novo | Na lista de **Arquivos**, cada arquivo tem uma caixinha **Baixar**: marque um arquivo ignorado e ele começa a baixar na hora, mesmo com o torrent já concluído, sem reverificar o que já foi baixado. Para escolher vários de uma vez, dê clique duplo no torrent. Se algum arquivo foi apagado do disco, o Itorrent confere tudo e baixa de novo o que falta. |
-| Apagar e conferir arquivos | Cada arquivo baixado tem uma **lixeira** no fim da linha, na lista de Arquivos: manda para a Lixeira do Windows (dá para recuperar), confere se o arquivo realmente saiu do disco e desmarca o arquivo. O Itorrent também confere o disco sozinho: se um arquivo for apagado por fora (pelo Explorer, por exemplo), ele aparece como **apagado** e é desmarcado. Para baixar de novo, basta marcar a caixinha. |
-| Ordenar listas | Clique no título de qualquer coluna (Nome, Tamanho, Progresso, Down, Seeds…) para ordenar: 1º clique crescente ▲, 2º decrescente ▼, 3º volta à ordem original (de adição). A lista continua ordenada enquanto os números mudam. |
+| Apagar e conferir arquivos | Cada arquivo baixado tem uma **lixeira** no fim da linha, na lista de Arquivos: manda para a Lixeira do Windows (dá para recuperar), confere se o arquivo realmente saiu do disco e desmarca o arquivo. Para baixar de novo, basta marcar a caixinha. |
+| Arquivos protegidos | Com o Itorrent aberto, os arquivos baixados ficam **travados**: o Explorer não consegue apagar nem renomear (abrir, assistir e copiar continuam liberados). Para apagar, use a lixeira do Itorrent ou feche o app. Se os arquivos de um torrent forem apagados com o app fechado, ele **sai da lista** na próxima vez que você abrir (HD externo desligado não conta como apagado). |
+| Ordenar listas | Clique no título de qualquer coluna (Nome, Tamanho, Progresso, Down, Seeds, Ratio…) para ordenar: 1º clique crescente ▲, 2º decrescente ▼, 3º volta à ordem original (de adição). A lista continua ordenada enquanto os números mudam. |
 | Alerta de executáveis | Avisa quando o torrent tem `.exe`, `.bat`, `.scr`, `.lnk`… e destaca extensão dupla (`filme.mp4.exe`). |
 | Modo Turbo | Um botão que aplica de uma vez todos os ajustes de velocidade (veja abaixo). |
-| Parar de semear ao concluir | Para o torrent quando termina, mantendo os arquivos. Durante o download o upload continua, porque o BitTorrent recompensa quem envia. |
-| Estatísticas | Progresso, velocidade, tempo restante, seeds e peers no formato `12 (340)`: 12 conectados a você, 340 na rede. |
+| Semear até o ratio 1.00 | Ao concluir, o torrent continua **semeando** até enviar de volta tanto quanto baixou (ratio 1.00) e então para sozinho, mantendo os arquivos. Bom para quem usa trackers que cobram ratio. A meta muda nas Configurações (0 = sem limite) e dá para desligar **Continuar semeando ao concluir**. |
+| Botão Semear | Na barra de ferramentas: com um torrent concluído selecionado, **Semear** volta a semear; semeando, vira **Parar**. Também no botão direito, no menu Transferências e no painel Informações. Se a meta já foi atingida, semeia sem limite até você parar. |
+| Contador de ratio | Coluna **Ratio** e, no painel Informações, quanto foi enviado e um gráfico: barras de Baixado e Enviado com uma linha tracejada na meta. Enquanto não chega lá, avisa: *Ratio 1,00 ainda não atingido: falta enviar 366 MB*. O contador fica salvo e continua de onde parou ao reabrir o app. |
+| Estatísticas | Progresso, velocidade, tempo restante, seeds e leechers no formato `12 (340)`: 12 conectados a você, 340 na rede. Os **leechers** são quem ainda está baixando e pode receber de você; o quadro do ratio mostra quantos há. |
 | Segundo plano | Por padrão, fechar (✕) só esconde a janela e os downloads continuam. Pausar tudo, Retomar tudo e Sair ficam no ícone da bandeja. Dá para trocar para "fechar de verdade" nas Opções. |
 | Encerrar sozinho | Se ficar em segundo plano sem baixar nada por **30 min, 2 h (padrão) ou 3 h**, o Itorrent se fecha sozinho. Também dá para escolher "Nunca". |
 | Retomada | Volta de onde parou depois de fechar o app ou reiniciar o PC. |
@@ -169,11 +172,13 @@ Baixe na aba **[Releases](../../releases)**. Não precisa instalar o .NET.
 | `PathGuardTests` | 19 | Bloqueio de `../`, caminhos absolutos, nomes reservados, `:` e caminhos longos. |
 | `LinkValidatorTests` | 23 | Magnets válidos e inválidos, links gigantes, trackers `file://`, `.torrent` acima de 10 MB e **fuzzing** com 3.000 arquivos corrompidos. |
 | `FileRiskCheckerTests` | 11 | Detecção de executáveis, extensão dupla e gravação do Mark of the Web. |
-| `PolicyEngineTests` | 20 | Para de semear ao concluir (com a opção desligada, continua) e encerramento automático por inatividade (30 min, 2 h, 3 h, nunca). |
+| `PolicyEngineTests` | 27 | Para de semear ao concluir, semear até o ratio 1.00 por padrão, cálculo do ratio e da meta (quanto falta enviar) e encerramento automático por inatividade (30 min, 2 h, 3 h, nunca). |
 | `TurboModeTests` | 3 | Perfil Turbo, torrents privados sem DHT/PEX e uma única porta aberta. |
 | `LocalizationTests` | 9 | Todo texto existe em português e inglês, toda chave usada no código tem tradução e a troca de idioma muda textos e números. |
-| `PersistenceTests` | 2 | Configurações e lista sobrevivem ao fechar e reabrir, inclusive com nomes maliciosos. |
-| **Total** | **87** | |
+| `PersistenceTests` | 4 | Configurações, lista, status semeando e contador de ratio sobrevivem ao fechar e reabrir, inclusive com nomes maliciosos e bancos de versões antigas. |
+| `PartsPieceWriterTests` | 3 | Sobras de peças de arquivos desmarcados ficam no cache e voltam ao lugar ao marcar o arquivo. |
+| `FileLocksTests` | 3 | Arquivo travado não pode ser apagado nem renomeado, mas continua podendo ser lido e gravado; soltar a trava libera e, durante uma exclusão, a trava não volta no meio. |
+| **Total** | **102** | |
 
 ## Compilar
 
@@ -185,7 +190,7 @@ Baixe na aba **[Releases](../../releases)**. Não precisa instalar o .NET.
 
 ```powershell
 dotnet build Itorrent.sln
-dotnet test                                    # 87 testes
+dotnet test                                    # 102 testes
 dotnet run --project src/Itorrent.Desktop
 ```
 
@@ -214,7 +219,7 @@ Itorrent/
 |---|---|
 | `Core/Engine` | `TorrentService` (adicionar, pausar, remover, estatísticas) e `EngineFactory` (perfis Normal e Turbo). |
 | `Core/Security` | `LinkValidator`, `PathGuard` e `FileRiskChecker`. |
-| `Core/Policies` | `PolicyEngine`: parar de semear ao concluir. |
+| `Core/Policies` | `PolicyEngine`: parar de semear ao concluir, ratio e meta de ratio. |
 | `Core/Storage` | Banco SQLite: torrents e configurações. |
 | `Core/Stats` | `TorrentSnapshot`: fotos imutáveis do estado, entregues à interface a cada 1 segundo. |
 | `Desktop/Themes` | `Retro.xaml`: todo o tema Windows 3.1. |
@@ -232,6 +237,8 @@ O núcleo (`Itorrent.Core`) é separado da interface de propósito: se um dia vi
 | Dados de retomada | `%LocalAppData%\Itorrent\cache\` |
 | Logs (guardados por 7 dias) | `%LocalAppData%\Itorrent\logs\` |
 | Downloads (padrão) | `Downloads\Itorrent` na sua pasta de usuário |
+
+Para testar sem tocar nos seus torrents, defina `ITORRENT_DATA_DIR` com um caminho completo antes de abrir o app: ele usa essa pasta para banco, cache e logs e roda como uma instância separada do Itorrent normal.
 
 ## Aviso legal
 

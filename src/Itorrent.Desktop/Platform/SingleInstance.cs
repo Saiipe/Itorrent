@@ -14,7 +14,9 @@ public sealed class SingleInstance : IDisposable
     public const string ShowCommand = "\u0001SHOW";
     private const int MaxMessageBytes = 8 * 1024;
 
-    private static readonly string Id = $"Itorrent-{Environment.UserName}";
+    private static readonly string Id = $"Itorrent-{Environment.UserName}" + (App.CustomDataDirectory is { } dir
+        ? "-" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(dir.ToUpperInvariant())))[..12]
+        : "");
     private readonly Mutex _mutex;
     private readonly CancellationTokenSource _cts = new();
 

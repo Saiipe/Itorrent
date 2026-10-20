@@ -183,7 +183,7 @@ public sealed partial class TorrentService
             }
 
             var resumed = 0;
-            foreach (var e in AllEntries().Where(e => e.Record.Status == StoredStatus.Active && e.Manager.State == TorrentState.Error))
+            foreach (var e in AllEntries().Where(e => e.Record.Status is StoredStatus.Active or StoredStatus.Seeding && e.Manager.State == TorrentState.Error))
             {
                 try
                 {
@@ -222,7 +222,7 @@ public sealed partial class TorrentService
 
     public async Task ReannounceAsync(string id)
     {
-        if (Find(id) is not { } entry || entry.Record.Status != StoredStatus.Active)
+        if (Find(id) is not { } entry || entry.Record.Status is not (StoredStatus.Active or StoredStatus.Seeding))
             return;
         var manager = entry.Manager;
         _log.Information("Procurando peers de novo para {Id}", id);

@@ -102,9 +102,9 @@ public sealed class AddTorrentViewModel : ObservableObject, IDisposable
                 return;
             OnPropertyChanged(nameof(IsReady));
             OnPropertyChanged(nameof(IsSlow));
-            OnPropertyChanged(nameof(CanRetry));
-            OnPropertyChanged(nameof(ShowRetryFooter));
-            RetryCommand.NotifyCanExecuteChanged();
+            // Todos os botões: a lista de arquivos do magnet chega ainda "carregando", e o
+            // Baixar ficaria desabilitado até alguém mexer numa caixinha.
+            RefreshCommands();
         }
     }
 

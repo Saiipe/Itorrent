@@ -25,6 +25,8 @@ public sealed class SettingsViewModel : ObservableObject
         _defaultSavePath = s.DefaultSavePath;
         ListenPort = s.ListenPort.ToString(System.Globalization.CultureInfo.InvariantCulture);
         TurboMode = s.TurboMode;
+        SeedAfterComplete = s.SeedAfterComplete;
+        SeedRatioGoal = s.SeedRatioGoal.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
         AllowPortForwarding = s.AllowPortForwarding;
         AllowDht = s.AllowDht;
         AllowPeerExchange = s.AllowPeerExchange;
@@ -72,6 +74,8 @@ public sealed class SettingsViewModel : ObservableObject
 
     public string ListenPort { get; set; }
     public bool TurboMode { get; set; }
+    public bool SeedAfterComplete { get; set; }
+    public string SeedRatioGoal { get; set; }
     public bool AllowPortForwarding { get; set; }
     public bool AllowDht { get; set; }
     public bool AllowPeerExchange { get; set; }
@@ -120,12 +124,16 @@ public sealed class SettingsViewModel : ObservableObject
             return Fail(Strings.T("Settings.ErrTurboConns"));
         if (!TryInt(MaxDownloadKBps, 0, 10_000_000, out var down) || !TryInt(MaxUploadKBps, 0, 10_000_000, out var up))
             return Fail(Strings.T("Settings.ErrSpeed"));
+        if (!TryRatio(SeedRatioGoal, out var ratioGoal))
+            return Fail(Strings.T("Settings.ErrRatio"));
 
         _settings.Save(_settings.Current with
         {
             DefaultSavePath = DefaultSavePath.Trim(),
             ListenPort = port,
             TurboMode = TurboMode,
+            SeedAfterComplete = SeedAfterComplete,
+            SeedRatioGoal = ratioGoal,
             AllowPortForwarding = AllowPortForwarding,
             AllowDht = AllowDht,
             AllowPeerExchange = AllowPeerExchange,
@@ -151,6 +159,12 @@ public sealed class SettingsViewModel : ObservableObject
         Error = message;
         return false;
     }
+
+    /// <summary>Aceita "1.5" e "1,5". 0 = sem limite.</summary>
+    private static bool TryRatio(string s, out double value) =>
+        double.TryParse(s?.Trim().Replace(',', '.'), System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out value)
+        && value >= 0 && value <= AppSettings.MaxSeedRatioGoal;
 
     private static bool TryInt(string s, int min, int max, out int value) =>
         int.TryParse(s, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out value)

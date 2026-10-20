@@ -45,7 +45,9 @@ public sealed class Database
                 total_size    INTEGER NOT NULL,
                 selected_size INTEGER NOT NULL,
                 added_at      TEXT NOT NULL,
-                completed_at  TEXT NULL
+                completed_at  TEXT NULL,
+                uploaded_bytes   INTEGER NOT NULL DEFAULT 0,
+                downloaded_bytes INTEGER NOT NULL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS settings (
                 key   TEXT PRIMARY KEY,
@@ -53,5 +55,27 @@ public sealed class Database
             );
             """;
         cmd.ExecuteNonQuery();
+
+        // Bancos de versões antigas: acrescenta as colunas do contador de ratio.
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var info = conn.CreateCommand())
+        {
+            info.CommandText = "SELECT name FROM pragma_table_info('torrents')";
+            using var r = info.ExecuteReader();
+            while (r.Read())
+                columns.Add(r.GetString(0));
+        }
+        if (!columns.Contains("uploaded_bytes"))
+        {
+            using var alter = conn.CreateCommand();
+            alter.CommandText = "ALTER TABLE torrents ADD COLUMN uploaded_bytes INTEGER NOT NULL DEFAULT 0";
+            alter.ExecuteNonQuery();
+        }
+        if (!columns.Contains("downloaded_bytes"))
+        {
+            using var alter = conn.CreateCommand();
+            alter.CommandText = "ALTER TABLE torrents ADD COLUMN downloaded_bytes INTEGER NOT NULL DEFAULT 0";
+            alter.ExecuteNonQuery();
+        }
     }
 }
